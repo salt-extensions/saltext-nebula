@@ -22,8 +22,6 @@ for minion retrieval.
         nebula.ca_duration: "87600h"    # 10 years
         nebula.ca_encrypt: true         # Encrypt CA private key
         nebula.ca_passphrase: "secure-passphrase-here"
-
-:codeauthor: Your Name <your.email@example.com>
 """
 
 import logging
@@ -228,7 +226,9 @@ def get_certificate(minion_id, auto_generate=True, validate_existing=True, **_kw
         ip = host_config.get("ip")
         groups = host_config.get("groups", [])
         subnets = host_config.get("subnets", [])
-        duration = host_config.get("duration", "720h")  # Default to 720h to match your setup
+        duration = host_config.get("duration", "720h")
+        dns_name = nebula_config.get("dns_name") # global mesh tld
+        cert_name = f"{minion_id}.{dns_name}" if dns_name else minion_id
 
         log.info(f"Host config for {minion_id}: ip={ip}, groups={groups}, duration={duration}")
 
@@ -278,7 +278,6 @@ def get_certificate(minion_id, auto_generate=True, validate_existing=True, **_kw
 
                 except Exception as e:  # pylint: disable=broad-exception-caught
                     log.warning(f"Failed to copy existing certificates to Salt file server: {e}")
-                    # Don't fail the operation for this
 
                 return {
                     "success": True,
@@ -314,7 +313,7 @@ def get_certificate(minion_id, auto_generate=True, validate_existing=True, **_kw
                     "-ca-key",
                     config["ca_key"],
                     "-name",
-                    minion_id,
+                    cert_name,
                     "-ip",
                     ip,
                     "-duration",
@@ -369,7 +368,6 @@ def get_certificate(minion_id, auto_generate=True, validate_existing=True, **_kw
 
                 except Exception as e:  # pylint: disable=broad-exception-caught
                     log.warning(f"Failed to copy certificates to Salt file server: {e}")
-                    # Don't fail the whole operation for this
 
                 return {
                     "success": True,
@@ -660,4 +658,4 @@ def test_pillar_access(minion_id):
 
 
 # Backward compatibility
-ensure_cert = get_certificate
+#ensure_cert = get_certificate
