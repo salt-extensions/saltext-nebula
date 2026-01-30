@@ -147,24 +147,9 @@ def _run_nebula_cert_command(cmd_args, timeout=30):
             exc.returncode, cmd_args, exc.stdout, exc.stderr
         ) from exc
 
-
 def _run_nebula_cert_with_pty(cmd_args, passphrase, timeout=30):
     """
     Run nebula-cert command with PTY for interactive passphrase entry.
-
-    Required for encrypted CA operations since nebula-cert refuses
-    non-interactive passphrase input for security reasons.
-
-    Args:
-        cmd_args: List of command arguments
-        passphrase: Passphrase to send when prompted
-        timeout: Command timeout in seconds
-
-    Returns:
-        tuple: (return_code, output_string)
-
-    Raises:
-        subprocess.TimeoutExpired: If command exceeds timeout
     """
     master_fd, slave_fd = pty.openpty()
 
@@ -189,7 +174,6 @@ def _run_nebula_cert_with_pty(cmd_args, passphrase, timeout=30):
                 proc.kill()
                 raise subprocess.TimeoutExpired(cmd_args, timeout)
 
-            # Wait for data with timeout
             readable, _, _ = select.select([master_fd], [], [], 1.0)
 
             if readable:
@@ -198,29 +182,31 @@ def _run_nebula_cert_with_pty(cmd_args, passphrase, timeout=30):
                     if data:
                         output += data
                         log.debug(f"PTY received: {data}")
-                        # Send passphrase when prompted (need to send twice for confirm)
                         if b"passphrase:" in output.lower() and passphrase_sent < 2:
-                            time.sleep(0.1)  # Small delay before sending
+                            time.sleep(0.1)
                             os.write(master_fd, f"{passphrase}\n".encode())
                             passphrase_sent += 1
                             log.debug(f"Sent passphrase ({passphrase_sent}/2)")
-                            # Clear the matched portion to detect next prompt
                             output = b""
                 except OSError:
+                    # PTY closed - process likely exited, this is normal
                     break
 
-        # Read any remaining output
-        while True:
-            readable, _, _ = select.select([master_fd], [], [], 0.1)
-            if not readable:
-                break
-            try:
+        # Ensure we get the return code
+        proc.wait()
+        
+        # Read any remaining output (ignore errors - PTY may be closed)
+        try:
+            while True:
+                readable, _, _ = select.select([master_fd], [], [], 0.1)
+                if not readable:
+                    break
                 data = os.read(master_fd, 1024)
                 if not data:
                     break
                 output += data
-            except OSError:
-                break
+        except OSError:
+            pass  # Expected when PTY is closed
 
         return proc.returncode, output.decode("utf-8", errors="replace")
 
