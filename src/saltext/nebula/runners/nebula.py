@@ -25,7 +25,11 @@ for minion retrieval.
 """
 
 import logging
+import os
+import pty
+import select
 import subprocess
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -115,11 +119,12 @@ def _ensure_cert_directory():
 
 
 def _run_nebula_cert_command(cmd_args, timeout=30):
-    """Run nebula-cert command with error handling"""
+    """Run nebula-cert command with error handling (non-interactive)"""
     config = _get_config()
     try:
         result = subprocess.run(
             cmd_args,
+            input="",
             capture_output=True,
             text=True,
             timeout=timeout,
@@ -141,6 +146,106 @@ def _run_nebula_cert_command(cmd_args, timeout=30):
         raise subprocess.CalledProcessError(
             exc.returncode, cmd_args, exc.stdout, exc.stderr
         ) from exc
+
+
+def _run_nebula_cert_with_pty(cmd_args, passphrase, timeout=30):
+    """
+    Run nebula-cert command with PTY for interactive passphrase entry.
+
+    Required for encrypted CA operations since nebula-cert refuses
+    non-interactive passphrase input for security reasons.
+
+    Args:
+        cmd_args: List of command arguments
+        passphrase: Passphrase to send when prompted
+        timeout: Command timeout in seconds
+
+    Returns:
+        tuple: (return_code, output_string)
+
+    Raises:
+        subprocess.TimeoutExpired: If command exceeds timeout
+    """
+    master_fd, slave_fd = pty.openpty()
+
+    try:
+        proc = subprocess.Popen(
+            cmd_args,
+            stdin=slave_fd,
+            stdout=slave_fd,
+            stderr=slave_fd,
+            close_fds=True,
+        )
+
+        os.close(slave_fd)
+        slave_fd = None
+
+        output = b""
+        passphrase_sent = 0
+        start_time = time.time()
+
+        while proc.poll() is None:
+            if time.time() - start_time > timeout:
+                proc.kill()
+                raise subprocess.TimeoutExpired(cmd_args, timeout)
+
+            # Wait for data with timeout
+            readable, _, _ = select.select([master_fd], [], [], 1.0)
+
+            if readable:
+                try:
+                    data = os.read(master_fd, 1024)
+                    if data:
+                        output += data
+                        log.debug(f"PTY received: {data}")
+                        # Send passphrase when prompted (need to send twice for confirm)
+                        if b"passphrase:" in output.lower() and passphrase_sent < 2:
+                            time.sleep(0.1)  # Small delay before sending
+                            os.write(master_fd, f"{passphrase}\n".encode())
+                            passphrase_sent += 1
+                            log.debug(f"Sent passphrase ({passphrase_sent}/2)")
+                            # Clear the matched portion to detect next prompt
+                            output = b""
+                except OSError:
+                    break
+
+        # Read any remaining output
+        while True:
+            readable, _, _ = select.select([master_fd], [], [], 0.1)
+            if not readable:
+                break
+            try:
+                data = os.read(master_fd, 1024)
+                if not data:
+                    break
+                output += data
+            except OSError:
+                break
+
+        return proc.returncode, output.decode("utf-8", errors="replace")
+
+    finally:
+        os.close(master_fd)
+        if slave_fd is not None:
+            os.close(slave_fd)
+
+
+def _is_ca_key_encrypted(ca_key_path):
+    """
+    Check if a CA key file is encrypted.
+
+    Args:
+        ca_key_path: Path to the CA key file
+
+    Returns:
+        bool: True if the key appears to be encrypted
+    """
+    try:
+        key_content = Path(ca_key_path).read_text(encoding="utf-8")
+        # Encrypted keys contain "ENCRYPTED" in the PEM header
+        return "ENCRYPTED" in key_content
+    except Exception:  # pylint: disable=broad-exception-caught
+        return False
 
 
 def get_certificate(minion_id, auto_generate=True, validate_existing=True, **_kwargs):
@@ -227,7 +332,7 @@ def get_certificate(minion_id, auto_generate=True, validate_existing=True, **_kw
         groups = host_config.get("groups", [])
         subnets = host_config.get("subnets", [])
         duration = host_config.get("duration", "720h")
-        dns_name = nebula_config.get("dns_name") # global mesh tld
+        dns_name = nebula_config.get("dns_name")  # global mesh tld
         cert_name = f"{minion_id}.{dns_name}" if dns_name else minion_id
 
         log.info(f"Host config for {minion_id}: ip={ip}, groups={groups}, duration={duration}")
@@ -239,6 +344,7 @@ def get_certificate(minion_id, auto_generate=True, validate_existing=True, **_kw
         cert_path = Path(config["cert_dir"]) / f"{minion_id}.crt"
         key_path = Path(config["cert_dir"]) / f"{minion_id}.key"
         ca_crt_path = Path(config["ca_crt"])
+        ca_key_path = Path(config["ca_key"])
 
         # Check if certificates exist and are valid
         if validate_existing and cert_path.exists() and key_path.exists():
@@ -303,6 +409,19 @@ def get_certificate(minion_id, auto_generate=True, validate_existing=True, **_kw
         if auto_generate:
             log.info(f"Generating new certificate for {minion_id}")
 
+            # Check if CA key is encrypted
+            ca_encrypted = _is_ca_key_encrypted(ca_key_path)
+            ca_passphrase = config["ca_passphrase"]
+
+            if ca_encrypted and not ca_passphrase:
+                return {
+                    "success": False,
+                    "error": (
+                        "CA key is encrypted but no passphrase configured. "
+                        "Set nebula.ca_passphrase in master config."
+                    ),
+                }
+
             try:
                 # Prepare command arguments
                 cmd_args = [
@@ -311,7 +430,7 @@ def get_certificate(minion_id, auto_generate=True, validate_existing=True, **_kw
                     "-ca-crt",
                     str(ca_crt_path),
                     "-ca-key",
-                    config["ca_key"],
+                    str(ca_key_path),
                     "-name",
                     cert_name,
                     "-ip",
@@ -324,10 +443,6 @@ def get_certificate(minion_id, auto_generate=True, validate_existing=True, **_kw
                     str(key_path),
                 ]
 
-                # Add CA passphrase if configured (for encrypted CA keys)
-                if config["ca_passphrase"]:
-                    cmd_args.extend(["-ca-key-passphrase", config["ca_passphrase"]])
-
                 # Add groups if specified
                 if groups:
                     cmd_args.extend(["-groups", ",".join(groups)])
@@ -336,11 +451,20 @@ def get_certificate(minion_id, auto_generate=True, validate_existing=True, **_kw
                 if subnets:
                     cmd_args.extend(["-subnets", ",".join(subnets)])
 
-                # Generate certificate
-                result = _run_nebula_cert_command(cmd_args)
+                # Generate certificate - use PTY if CA is encrypted
+                if ca_encrypted:
+                    log.info(f"Using PTY for encrypted CA key signing")
+                    returncode, output = _run_nebula_cert_with_pty(cmd_args, ca_passphrase)
+                    if returncode != 0:
+                        return {
+                            "success": False,
+                            "error": f"Certificate generation failed: {output}",
+                        }
+                else:
+                    result = _run_nebula_cert_command(cmd_args)
+                    log.debug(f"nebula-cert output: {result.stdout}")
 
                 log.info(f"Certificate generated successfully for {minion_id}")
-                log.debug(f"nebula-cert output: {result.stdout}")
 
                 # Read generated certificate contents
                 cert_content = cert_path.read_text(encoding="utf-8")
@@ -382,6 +506,8 @@ def get_certificate(minion_id, auto_generate=True, validate_existing=True, **_kw
                     "generated_at": datetime.now().isoformat(),
                 }
 
+            except subprocess.TimeoutExpired:
+                return {"success": False, "error": "Certificate generation timed out"}
             except Exception as e:  # pylint: disable=broad-exception-caught
                 log.error(f"Certificate generation failed for {minion_id}: {e}")
                 return {"success": False, "error": f"Certificate generation failed: {e}"}
@@ -557,7 +683,7 @@ def ca_init(name=None, duration=None, encrypt=None, passphrase=None, force=False
             str(ca_key_path),
         ]
 
-        # Add encryption if requested
+        # Add encryption flag
         if ca_encrypt:
             cmd_args.append("-encrypt")
         else:
@@ -569,25 +695,29 @@ def ca_init(name=None, duration=None, encrypt=None, passphrase=None, force=False
 
         # Run the command
         if ca_encrypt and ca_passphrase:
-            # For encrypted keys, pass passphrase via stdin
+            # For encrypted keys, use PTY to handle interactive passphrase entry
+            log.info("Using PTY for encrypted CA key generation")
+            returncode, output = _run_nebula_cert_with_pty(cmd_args, ca_passphrase)
+            if returncode != 0:
+                return {
+                    "success": False,
+                    "error": f"nebula-cert ca failed: {output}",
+                }
+        else:
+            # Unencrypted - use simple subprocess with empty stdin
             result = subprocess.run(
                 cmd_args,
-                input=f"{ca_passphrase}\n{ca_passphrase}\n",  # Passphrase + confirmation
+                input="",
                 capture_output=True,
                 text=True,
                 timeout=30,
                 check=False,
             )
-        else:
-            result = subprocess.run(
-                cmd_args, capture_output=True, text=True, timeout=30, check=False
-            )
-
-        if result.returncode != 0:
-            return {
-                "success": False,
-                "error": f"nebula-cert ca failed: {result.stderr or result.stdout}",
-            }
+            if result.returncode != 0:
+                return {
+                    "success": False,
+                    "error": f"nebula-cert ca failed: {result.stderr or result.stdout}",
+                }
 
         # Set proper permissions
         ca_key_path.chmod(0o600)
@@ -655,7 +785,3 @@ def test_pillar_access(minion_id):
         }
     except Exception as e:  # pylint: disable=broad-exception-caught
         return {"success": False, "error": str(e)}
-
-
-# Backward compatibility
-#ensure_cert = get_certificate
