@@ -560,8 +560,8 @@ def ca_init(name=None, duration=None, encrypt=None, passphrase=None, force=False
         # Add encryption if requested
         if ca_encrypt:
             cmd_args.append("-encrypt")
-            # Note: nebula-cert reads passphrase from stdin or -passphrase flag
-            # Using environment variable for security
+        else:
+            cmd_args.append("-encrypt=false")
 
         log.info(
             f'Initializing Nebula CA: name="{ca_name}", duration={ca_duration}, encrypt={ca_encrypt}'
