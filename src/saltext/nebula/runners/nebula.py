@@ -26,10 +26,16 @@ for minion retrieval.
 
 import logging
 import os
-import pty
-import select
 import subprocess
 import time
+
+try:
+    import pty
+    import select
+
+    HAS_PTY = True
+except ImportError:
+    HAS_PTY = False
 from datetime import datetime
 from pathlib import Path
 
@@ -151,6 +157,11 @@ def _run_nebula_cert_with_pty(cmd_args, passphrase, timeout=30):
     """
     Run nebula-cert command with PTY for interactive passphrase entry.
     """
+    if not HAS_PTY:
+        raise RuntimeError(
+            "PTY support is not available on this platform. "
+            "Encrypted CA keys require a Unix-like system."
+        )
     master_fd, slave_fd = pty.openpty()
 
     try:

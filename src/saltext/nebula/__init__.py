@@ -1,8 +1,30 @@
-"""
-Salt Extension for managing Nebula mesh VPN.
+# pylint: disable=missing-module-docstring
+import pathlib
 
-This extension provides execution, state, runner, and beacon modules
-for managing Nebula VPN deployments across your infrastructure.
-"""
+PACKAGE_ROOT = pathlib.Path(__file__).resolve().parent
+try:
+    from .version import __version__
+except ImportError:  # pragma: no cover
+    __version__ = "0.0.0.not-installed"
+    try:
+        from importlib.metadata import PackageNotFoundError
+        from importlib.metadata import version
 
-__version__ = "0.1.0"
+        try:
+            __version__ = version(__name__)
+        except PackageNotFoundError:
+            # package is not installed
+            pass
+    except ImportError:
+        try:
+            from pkg_resources import DistributionNotFound
+            from pkg_resources import get_distribution
+
+            try:
+                __version__ = get_distribution(__name__).version
+            except DistributionNotFound:
+                # package is not installed
+                pass
+        except ImportError:
+            # pkg resources isn't even available?!
+            pass
