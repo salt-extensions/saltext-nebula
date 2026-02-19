@@ -2,7 +2,6 @@
 Unit tests for saltext.nebula.modules.nebula
 """
 
-import os
 from datetime import datetime
 from datetime import timedelta
 from unittest.mock import MagicMock
@@ -12,10 +11,10 @@ import pytest
 
 import saltext.nebula.modules.nebula as nebula_mod
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture(autouse=True)
 def _mock_dunders():
@@ -36,8 +35,10 @@ class TestDetectPaths:
 
     def test_linux_package(self):
         """Standard /usr/bin package installation."""
-        with patch.object(nebula_mod.platform, "system", return_value="Linux"), \
-             patch.object(nebula_mod.os.path, "exists") as mock_exists:
+        with (
+            patch.object(nebula_mod.platform, "system", return_value="Linux"),
+            patch.object(nebula_mod.os.path, "exists") as mock_exists,
+        ):
 
             def exists_side_effect(path):
                 return path in ("/usr/bin/nebula", "/usr/bin/nebula-cert")
@@ -58,8 +59,10 @@ class TestDetectPaths:
 
     def test_linux_sbin(self):
         """Binary in /usr/sbin (e.g. some distro packages)."""
-        with patch.object(nebula_mod.platform, "system", return_value="Linux"), \
-             patch.object(nebula_mod.os.path, "exists") as mock_exists:
+        with (
+            patch.object(nebula_mod.platform, "system", return_value="Linux"),
+            patch.object(nebula_mod.os.path, "exists") as mock_exists,
+        ):
 
             def exists_side_effect(path):
                 return path in ("/usr/sbin/nebula", "/usr/sbin/nebula-cert")
@@ -73,8 +76,10 @@ class TestDetectPaths:
 
     def test_linux_snap(self):
         """Snap installation."""
-        with patch.object(nebula_mod.platform, "system", return_value="Linux"), \
-             patch.object(nebula_mod.os.path, "exists") as mock_exists:
+        with (
+            patch.object(nebula_mod.platform, "system", return_value="Linux"),
+            patch.object(nebula_mod.os.path, "exists") as mock_exists,
+        ):
 
             def exists_side_effect(path):
                 return path in ("/snap/bin/nebula", "/var/snap/nebula")
@@ -89,8 +94,10 @@ class TestDetectPaths:
 
     def test_windows_chocolatey(self):
         """Windows chocolatey installation."""
-        with patch.object(nebula_mod.platform, "system", return_value="Windows"), \
-             patch.object(nebula_mod.os.path, "exists") as mock_exists:
+        with (
+            patch.object(nebula_mod.platform, "system", return_value="Windows"),
+            patch.object(nebula_mod.os.path, "exists") as mock_exists,
+        ):
 
             mock_exists.side_effect = lambda p: p == "C:\\ProgramData\\chocolatey\\bin\\nebula.exe"
 
@@ -102,8 +109,10 @@ class TestDetectPaths:
 
     def test_windows_fallback(self):
         """Windows with no detected installation."""
-        with patch.object(nebula_mod.platform, "system", return_value="Windows"), \
-             patch.object(nebula_mod.os.path, "exists", return_value=False):
+        with (
+            patch.object(nebula_mod.platform, "system", return_value="Windows"),
+            patch.object(nebula_mod.os.path, "exists", return_value=False),
+        ):
 
             paths = nebula_mod.detect_paths()
 
@@ -114,8 +123,10 @@ class TestDetectPaths:
         """Pillar values can override detected paths."""
         nebula_mod.__pillar__ = {"nebula": {"config_dir": "/custom/config"}}
 
-        with patch.object(nebula_mod.platform, "system", return_value="Linux"), \
-             patch.object(nebula_mod.os.path, "exists", return_value=False):
+        with (
+            patch.object(nebula_mod.platform, "system", return_value="Linux"),
+            patch.object(nebula_mod.os.path, "exists", return_value=False),
+        ):
 
             paths = nebula_mod.detect_paths()
 
@@ -125,8 +136,10 @@ class TestDetectPaths:
         """Cert and key files incorporate the minion ID."""
         nebula_mod.__grains__["id"] = "my-server"
 
-        with patch.object(nebula_mod.platform, "system", return_value="Linux"), \
-             patch.object(nebula_mod.os.path, "exists", return_value=False):
+        with (
+            patch.object(nebula_mod.platform, "system", return_value="Linux"),
+            patch.object(nebula_mod.os.path, "exists", return_value=False),
+        ):
 
             paths = nebula_mod.detect_paths()
 
@@ -154,7 +167,9 @@ class TestCertNeedsRenewal:
         cert_file.write_text("fake cert content")
 
         future = datetime.now() + timedelta(days=90)
-        with patch.object(nebula_mod, "_parse_certificate_expiry_from_content", return_value=future):
+        with patch.object(
+            nebula_mod, "_parse_certificate_expiry_from_content", return_value=future
+        ):
             result = nebula_mod.cert_needs_renewal(str(cert_file), buffer_days=30)
 
         assert result["needs_renewal"] is False
@@ -167,7 +182,9 @@ class TestCertNeedsRenewal:
         cert_file.write_text("fake cert content")
 
         near_future = datetime.now() + timedelta(days=10)
-        with patch.object(nebula_mod, "_parse_certificate_expiry_from_content", return_value=near_future):
+        with patch.object(
+            nebula_mod, "_parse_certificate_expiry_from_content", return_value=near_future
+        ):
             result = nebula_mod.cert_needs_renewal(str(cert_file), buffer_days=30)
 
         assert result["needs_renewal"] is True
@@ -175,9 +192,16 @@ class TestCertNeedsRenewal:
 
     def test_autodetect_path(self):
         """When no path given, uses detect_paths."""
-        with patch.object(nebula_mod, "detect_paths", return_value={
-            "cert_file": "/etc/nebula/testhost.crt",
-        }), patch.object(nebula_mod.os.path, "exists", return_value=False):
+        with (
+            patch.object(
+                nebula_mod,
+                "detect_paths",
+                return_value={
+                    "cert_file": "/etc/nebula/testhost.crt",
+                },
+            ),
+            patch.object(nebula_mod.os.path, "exists", return_value=False),
+        ):
             result = nebula_mod.cert_needs_renewal()
 
         assert result["needs_renewal"] is True
@@ -197,7 +221,9 @@ class TestParseCertExpiry:
         cert_file.write_text("cert data")
 
         future = datetime(2027, 6, 15, 12, 0, 0)
-        with patch.object(nebula_mod, "_parse_certificate_expiry_from_content", return_value=future):
+        with patch.object(
+            nebula_mod, "_parse_certificate_expiry_from_content", return_value=future
+        ):
             result = nebula_mod.parse_cert_expiry(cert_path=str(cert_file))
 
         assert result["success"] is True
@@ -207,7 +233,9 @@ class TestParseCertExpiry:
     def test_from_content(self):
         """Reading cert from content string."""
         future = datetime(2027, 6, 15, 12, 0, 0)
-        with patch.object(nebula_mod, "_parse_certificate_expiry_from_content", return_value=future):
+        with patch.object(
+            nebula_mod, "_parse_certificate_expiry_from_content", return_value=future
+        ):
             result = nebula_mod.parse_cert_expiry(cert_content="cert data")
 
         assert result["success"] is True
@@ -276,23 +304,41 @@ class TestBuildConfig:
 
     def test_basic_structure(self):
         """Config has all expected top-level keys."""
-        with patch.object(nebula_mod, "detect_paths", return_value={
-            "ca_file": "/etc/nebula/ca.crt",
-            "cert_file": "/etc/nebula/testhost.crt",
-            "key_file": "/etc/nebula/testhost.key",
-        }):
+        with patch.object(
+            nebula_mod,
+            "detect_paths",
+            return_value={
+                "ca_file": "/etc/nebula/ca.crt",
+                "cert_file": "/etc/nebula/testhost.crt",
+                "key_file": "/etc/nebula/testhost.key",
+            },
+        ):
             config = nebula_mod.build_config()
 
-        expected_keys = {"pki", "static_host_map", "lighthouse", "listen", "punchy", "relay", "tun", "logging", "firewall"}
+        expected_keys = {
+            "pki",
+            "static_host_map",
+            "lighthouse",
+            "listen",
+            "punchy",
+            "relay",
+            "tun",
+            "logging",
+            "firewall",
+        }
         assert expected_keys == set(config.keys())
 
     def test_lighthouse_hosts(self):
         """Non-lighthouse gets lighthouse hosts list."""
-        with patch.object(nebula_mod, "detect_paths", return_value={
-            "ca_file": "/etc/nebula/ca.crt",
-            "cert_file": "/etc/nebula/testhost.crt",
-            "key_file": "/etc/nebula/testhost.key",
-        }):
+        with patch.object(
+            nebula_mod,
+            "detect_paths",
+            return_value={
+                "ca_file": "/etc/nebula/ca.crt",
+                "cert_file": "/etc/nebula/testhost.crt",
+                "key_file": "/etc/nebula/testhost.key",
+            },
+        ):
             config = nebula_mod.build_config()
 
         assert config["lighthouse"]["am_lighthouse"] is False
@@ -300,11 +346,15 @@ class TestBuildConfig:
 
     def test_remote_allow_list_merge(self):
         """Host remote_allow_list overrides common values."""
-        with patch.object(nebula_mod, "detect_paths", return_value={
-            "ca_file": "/etc/nebula/ca.crt",
-            "cert_file": "/etc/nebula/testhost.crt",
-            "key_file": "/etc/nebula/testhost.key",
-        }):
+        with patch.object(
+            nebula_mod,
+            "detect_paths",
+            return_value={
+                "ca_file": "/etc/nebula/ca.crt",
+                "cert_file": "/etc/nebula/testhost.crt",
+                "key_file": "/etc/nebula/testhost.key",
+            },
+        ):
             config = nebula_mod.build_config()
 
         ral = config["lighthouse"]["remote_allow_list"]
@@ -314,11 +364,15 @@ class TestBuildConfig:
 
     def test_firewall_rules_pass_through(self):
         """Host firewall rules are used directly from pillar."""
-        with patch.object(nebula_mod, "detect_paths", return_value={
-            "ca_file": "/etc/nebula/ca.crt",
-            "cert_file": "/etc/nebula/testhost.crt",
-            "key_file": "/etc/nebula/testhost.key",
-        }):
+        with patch.object(
+            nebula_mod,
+            "detect_paths",
+            return_value={
+                "ca_file": "/etc/nebula/ca.crt",
+                "cert_file": "/etc/nebula/testhost.crt",
+                "key_file": "/etc/nebula/testhost.key",
+            },
+        ):
             config = nebula_mod.build_config()
 
         assert len(config["firewall"]["inbound"]) == 2
@@ -329,11 +383,15 @@ class TestBuildConfig:
         """Falls back to defaults when no firewall rules specified."""
         nebula_mod.__pillar__["nebula"]["hosts"]["testhost"].pop("firewall")
 
-        with patch.object(nebula_mod, "detect_paths", return_value={
-            "ca_file": "/etc/nebula/ca.crt",
-            "cert_file": "/etc/nebula/testhost.crt",
-            "key_file": "/etc/nebula/testhost.key",
-        }):
+        with patch.object(
+            nebula_mod,
+            "detect_paths",
+            return_value={
+                "ca_file": "/etc/nebula/ca.crt",
+                "cert_file": "/etc/nebula/testhost.crt",
+                "key_file": "/etc/nebula/testhost.key",
+            },
+        ):
             config = nebula_mod.build_config()
 
         assert config["firewall"]["outbound"] == [{"port": "any", "proto": "any", "host": "any"}]
@@ -341,11 +399,15 @@ class TestBuildConfig:
 
     def test_static_host_map(self):
         """Static host map is built from lighthouses."""
-        with patch.object(nebula_mod, "detect_paths", return_value={
-            "ca_file": "/etc/nebula/ca.crt",
-            "cert_file": "/etc/nebula/testhost.crt",
-            "key_file": "/etc/nebula/testhost.key",
-        }):
+        with patch.object(
+            nebula_mod,
+            "detect_paths",
+            return_value={
+                "ca_file": "/etc/nebula/ca.crt",
+                "cert_file": "/etc/nebula/testhost.crt",
+                "key_file": "/etc/nebula/testhost.key",
+            },
+        ):
             config = nebula_mod.build_config()
 
         assert "172.25.0.1" in config["static_host_map"]
@@ -362,11 +424,15 @@ class TestBackupRollback:
 
     def test_backup_no_config(self):
         """Backup when config file doesn't exist."""
-        with patch.object(nebula_mod, "detect_paths", return_value={
-            "config_file": "/nonexistent/nebula.yml",
-            "backup_dir": "/nonexistent/backups",
-            "path_sep": "/",
-        }):
+        with patch.object(
+            nebula_mod,
+            "detect_paths",
+            return_value={
+                "config_file": "/nonexistent/nebula.yml",
+                "backup_dir": "/nonexistent/backups",
+                "path_sep": "/",
+            },
+        ):
             result = nebula_mod.backup_config()
 
         assert result["success"] is False
@@ -377,11 +443,18 @@ class TestBackupRollback:
         config = tmp_path / "nebula.yml"
         config.write_text("test config")
 
-        with patch.object(nebula_mod, "detect_paths", return_value={
-            "config_file": str(config),
-            "backup_dir": str(tmp_path / "backups"),
-            "path_sep": "/",
-        }), patch.object(nebula_mod, "_run_service_cmd", return_value=(False, "inactive")):
+        with (
+            patch.object(
+                nebula_mod,
+                "detect_paths",
+                return_value={
+                    "config_file": str(config),
+                    "backup_dir": str(tmp_path / "backups"),
+                    "path_sep": "/",
+                },
+            ),
+            patch.object(nebula_mod, "_run_service_cmd", return_value=(False, "inactive")),
+        ):
             result = nebula_mod.backup_config()
 
         assert result["success"] is True
@@ -389,12 +462,19 @@ class TestBackupRollback:
 
     def test_rollback_no_backup(self):
         """Rollback with no backup file."""
-        with patch.object(nebula_mod, "detect_paths", return_value={
-            "config_file": "/etc/nebula/nebula.yml",
-            "backup_dir": "/etc/nebula/backups",
-            "path_sep": "/",
-        }), patch.object(nebula_mod.platform, "system", return_value="Linux"), \
-             patch.object(nebula_mod.os.path, "islink", return_value=False):
+        with (
+            patch.object(
+                nebula_mod,
+                "detect_paths",
+                return_value={
+                    "config_file": "/etc/nebula/nebula.yml",
+                    "backup_dir": "/etc/nebula/backups",
+                    "path_sep": "/",
+                },
+            ),
+            patch.object(nebula_mod.platform, "system", return_value="Linux"),
+            patch.object(nebula_mod.os.path, "islink", return_value=False),
+        ):
             result = nebula_mod.rollback_config()
 
         assert result["success"] is False
@@ -439,14 +519,21 @@ class TestPurge:
         config_dir.mkdir()
         (config_dir / "nebula.yml").write_text("test")
 
-        with patch.object(nebula_mod, "detect_paths", return_value={
-            "install_method": "package",
-            "service_name": "nebula",
-            "config_dir": str(config_dir),
-            "cert_dir": str(config_dir),
-        }), patch.object(nebula_mod.platform, "system", return_value="Linux"), \
-             patch.object(nebula_mod, "_run_service_cmd", return_value=(True, "ok")), \
-             patch.object(nebula_mod.subprocess, "run"):
+        with (
+            patch.object(
+                nebula_mod,
+                "detect_paths",
+                return_value={
+                    "install_method": "package",
+                    "service_name": "nebula",
+                    "config_dir": str(config_dir),
+                    "cert_dir": str(config_dir),
+                },
+            ),
+            patch.object(nebula_mod.platform, "system", return_value="Linux"),
+            patch.object(nebula_mod, "_run_service_cmd", return_value=(True, "ok")),
+            patch.object(nebula_mod.subprocess, "run"),
+        ):
             result = nebula_mod.purge()
 
         assert result["success"] is True
@@ -463,10 +550,14 @@ class TestValidateCertificate:
 
     def test_missing_cert(self):
         """Returns invalid when cert file doesn't exist."""
-        with patch.object(nebula_mod, "detect_paths", return_value={
-            "cert_file": "/missing.crt",
-            "ca_file": "/missing-ca.crt",
-        }):
+        with patch.object(
+            nebula_mod,
+            "detect_paths",
+            return_value={
+                "cert_file": "/missing.crt",
+                "ca_file": "/missing-ca.crt",
+            },
+        ):
             result = nebula_mod.validate_certificate()
 
         assert result["valid"] is False
@@ -480,11 +571,18 @@ class TestValidateCertificate:
         ca.write_text("ca")
 
         mock_result = MagicMock(returncode=0)
-        with patch.object(nebula_mod, "detect_paths", return_value={
-            "cert_file": str(cert),
-            "ca_file": str(ca),
-        }), patch.object(nebula_mod, "_get_nebula_cert_binary", return_value="nebula-cert"), \
-             patch.object(nebula_mod.subprocess, "run", return_value=mock_result):
+        with (
+            patch.object(
+                nebula_mod,
+                "detect_paths",
+                return_value={
+                    "cert_file": str(cert),
+                    "ca_file": str(ca),
+                },
+            ),
+            patch.object(nebula_mod, "_get_nebula_cert_binary", return_value="nebula-cert"),
+            patch.object(nebula_mod.subprocess, "run", return_value=mock_result),
+        ):
             result = nebula_mod.validate_certificate()
 
         assert result["valid"] is True

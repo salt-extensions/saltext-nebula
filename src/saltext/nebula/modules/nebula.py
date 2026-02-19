@@ -22,8 +22,8 @@ from datetime import datetime
 from datetime import timedelta
 
 try:
-    import grp
-    import pwd
+    import grp  # pylint: disable=unused-import
+    import pwd  # pylint: disable=unused-import
 
     HAS_UNIX_PERMISSIONS = True
 except ImportError:
@@ -119,7 +119,6 @@ def _read_text(path):
         return None
 
 
-
 def _deep_merge(base, override):
     """
     Recursively merge *override* into a copy of *base*.
@@ -204,7 +203,11 @@ def _run_service_cmd(action):
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=30, check=False)
         success = result.returncode == 0
-        msg = result.stdout.strip() or result.stderr.strip() or f"{action} returned {result.returncode}"
+        msg = (
+            result.stdout.strip()
+            or result.stderr.strip()
+            or f"{action} returned {result.returncode}"
+        )
         return success, msg
     except Exception as e:  # pylint: disable=broad-exception-caught
         return False, str(e)
@@ -718,7 +721,10 @@ def backup_config():
     # Check if service is running first
     running, _ = _run_service_cmd("status")
     if not running:
-        return {"success": True, "message": "Service not running, skipping backup of unvalidated config"}
+        return {
+            "success": True,
+            "message": "Service not running, skipping backup of unvalidated config",
+        }
 
     try:
         os.makedirs(backup_dir, exist_ok=True)
@@ -908,7 +914,8 @@ def purge(remove_package=True):
         # Kill lingering processes
         subprocess.run(
             ["taskkill", "/F", "/IM", "nebula.exe"],
-            capture_output=True, check=False,
+            capture_output=True,
+            check=False,
         )
 
         # Remove Windows service registration
@@ -1014,7 +1021,11 @@ def test_connectivity(target_host=None, timeout=10):
             pass
 
     if not target_host:
-        return {**result, "success": False, "error": "No target host specified and no lighthouse in pillar"}
+        return {
+            **result,
+            "success": False,
+            "error": "No target host specified and no lighthouse in pillar",
+        }
 
     result["target_host"] = target_host
 

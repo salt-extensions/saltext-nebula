@@ -85,9 +85,13 @@ def _set_permissions(file_path, is_private_key=False):
         import subprocess  # pylint: disable=import-outside-toplevel
 
         args = [
-            "icacls", str(file_path), "/inheritance:r",
-            "/grant:r", "SYSTEM:(F)",
-            "/grant:r", "Administrators:(F)",
+            "icacls",
+            str(file_path),
+            "/inheritance:r",
+            "/grant:r",
+            "SYSTEM:(F)",
+            "/grant:r",
+            "Administrators:(F)",
         ]
         if not is_private_key:
             args.extend(["/grant:r", "Users:(R)"])

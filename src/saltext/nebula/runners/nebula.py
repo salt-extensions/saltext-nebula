@@ -153,6 +153,7 @@ def _run_nebula_cert_command(cmd_args, timeout=30):
             exc.returncode, cmd_args, exc.stdout, exc.stderr
         ) from exc
 
+
 def _run_nebula_cert_with_pty(cmd_args, passphrase, timeout=30):
     """
     Run nebula-cert command with PTY for interactive passphrase entry.
@@ -162,19 +163,19 @@ def _run_nebula_cert_with_pty(cmd_args, passphrase, timeout=30):
             "PTY support is not available on this platform. "
             "Encrypted CA keys require a Unix-like system."
         )
-    master_fd, slave_fd = pty.openpty()
+    master_fd, subordinate_fd = pty.openpty()
 
     try:
-        proc = subprocess.Popen(
+        proc = subprocess.Popen(  # pylint: disable=consider-using-with
             cmd_args,
-            stdin=slave_fd,
-            stdout=slave_fd,
-            stderr=slave_fd,
+            stdin=subordinate_fd,
+            stdout=subordinate_fd,
+            stderr=subordinate_fd,
             close_fds=True,
         )
 
-        os.close(slave_fd)
-        slave_fd = None
+        os.close(subordinate_fd)
+        subordinate_fd = None
 
         output = b""
         passphrase_sent = 0
@@ -205,7 +206,7 @@ def _run_nebula_cert_with_pty(cmd_args, passphrase, timeout=30):
 
         # Ensure we get the return code
         proc.wait()
-        
+
         # Read any remaining output (ignore errors - PTY may be closed)
         try:
             while True:
@@ -223,8 +224,8 @@ def _run_nebula_cert_with_pty(cmd_args, passphrase, timeout=30):
 
     finally:
         os.close(master_fd)
-        if slave_fd is not None:
-            os.close(slave_fd)
+        if subordinate_fd is not None:
+            os.close(subordinate_fd)
 
 
 def _is_ca_key_encrypted(ca_key_path):
@@ -450,7 +451,7 @@ def get_certificate(minion_id, auto_generate=True, validate_existing=True, **_kw
 
                 # Generate certificate - use PTY if CA is encrypted
                 if ca_encrypted:
-                    log.info(f"Using PTY for encrypted CA key signing")
+                    log.info("Using PTY for encrypted CA key signing")
                     returncode, output = _run_nebula_cert_with_pty(cmd_args, ca_passphrase)
                     if returncode != 0:
                         return {
