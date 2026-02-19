@@ -173,7 +173,7 @@ salt-run nebula.get_certificate minion_id=client01
 
 Create `/srv/salt/nebula/init.sls`:
 
-```yaml
+```sls
 # Ensure Nebula is installed (adjust for your OS)
 nebula_package:
   pkg.installed:

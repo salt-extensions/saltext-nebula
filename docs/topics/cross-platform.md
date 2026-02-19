@@ -89,7 +89,7 @@ Behind the scenes, these map to:
 
 The execution module handles platform differences, allowing states to remain simple:
 
-```yaml
+```sls
 # This state works on Linux, Windows, Alpine, etc.
 {% set nebula = salt['nebula.detect_paths']() %}
 {% set config = salt['nebula.build_config']() %}
@@ -108,7 +108,7 @@ nebula_config:
 
 When you need platform-specific behavior, use grains:
 
-```yaml
+```sls
 {% if grains['os_family'] == 'Windows' %}
 nebula_package:
   chocolatey.installed:

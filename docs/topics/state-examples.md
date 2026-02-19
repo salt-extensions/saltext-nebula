@@ -6,7 +6,7 @@ This page provides complete, production-ready state examples for deploying Nebul
 
 A minimal state for deploying Nebula to a node:
 
-```yaml
+```sls
 # /srv/salt/nebula/init.sls
 
 # Deploy certificates from master
@@ -61,7 +61,7 @@ nebula_service:
 
 A comprehensive state that handles package installation across platforms:
 
-```yaml
+```sls
 # /srv/salt/nebula/init.sls
 
 #
@@ -222,7 +222,7 @@ nebula_service:
 
 Additional configuration for lighthouse nodes:
 
-```yaml
+```sls
 # /srv/salt/nebula/lighthouse.sls
 
 include:
@@ -249,7 +249,7 @@ lighthouse_firewall:
 
 Deploy the certificate expiration beacon:
 
-```yaml
+```sls
 # /srv/salt/nebula/beacon.sls
 
 nebula_beacon_config:
@@ -274,7 +274,7 @@ restart_minion_for_beacon:
 
 An orchestration state to generate certificates for all Nebula hosts:
 
-```yaml
+```sls
 # /srv/salt/orch/nebula_certs.sls
 
 {% set nebula_hosts = salt.saltutil.runner('pillar.show_pillar', minion='*').get('nebula', {}).get('hosts', {}) %}
@@ -296,7 +296,7 @@ salt-run state.orchestrate orch.nebula_certs
 
 Deploy Nebula to all configured hosts:
 
-```yaml
+```sls
 # /srv/salt/orch/nebula_deploy.sls
 
 # First, ensure all certificates are generated
@@ -340,7 +340,7 @@ verify_mesh:
 
 Completely remove Nebula from a system:
 
-```yaml
+```sls
 # /srv/salt/nebula/remove.sls
 
 nebula_purge:
@@ -358,7 +358,7 @@ salt web01 state.apply nebula.remove
 
 Only deploy if the minion has Nebula configuration:
 
-```yaml
+```sls
 # /srv/salt/nebula/init.sls
 
 {% if salt['pillar.get']('nebula:hosts:' ~ grains['id']) %}
