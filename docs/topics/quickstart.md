@@ -303,5 +303,5 @@ salt web01 saltutil.refresh_pillar
 ## Next Steps
 
 - Read the [Pillar Configuration](pillar-configuration.md) guide for advanced topology options
-- Set up [Automatic Certificate Renewal](certificate-management.md#certificate-renewal) with beacons
+- Set up [Automatic Certificate Renewal](certificate-management.md) with beacons
 - Review the [Module Reference](../ref/modules/index) for all available functions
