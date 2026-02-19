@@ -80,7 +80,7 @@ salt '*' nebula.service_enable
 Behind the scenes, these map to:
 
 | Action  | systemd                      | OpenRC                      | Snap                         | Windows                               |
-|---------+------------------------------+-----------------------------+------------------------------+---------------------------------------|
+|---------|------------------------------|-----------------------------|------------------------------|---------------------------------------|
 | restart | `systemctl restart nebula`   | `rc-service nebula restart` | `snap restart nebula`        | `net stop nebula && net start nebula` |
 | status  | `systemctl is-active nebula` | `rc-service nebula status`  | `snap services nebula`       | `sc query nebula`                     |
 | enable  | `systemctl enable nebula`    | `rc-update add nebula`      | `snap start --enable nebula` | `sc config nebula start= auto`        |
