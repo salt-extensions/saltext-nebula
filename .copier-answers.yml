@@ -32,3 +32,5 @@ summary: Salt Extension for interacting with Nebula
 test_containers: false
 tracker_url: https://github.com/salt-extensions/saltext-nebula/issues
 url: https://github.com/salt-extensions/saltext-nebula
+
+#copier updated
