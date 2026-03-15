@@ -624,6 +624,16 @@ def build_config(minion_id=None):
     if host_config.get("calculated_remotes"):
         lh_config["calculated_remotes"] = host_config["calculated_remotes"]
 
+    # serve_dns / dns: lighthouse-only
+    if is_lighthouse and host_config.get("serve_dns"):
+        lh_config["serve_dns"] = True
+        dns_cfg = host_config.get("dns", {})
+        if dns_cfg:
+            lh_config["dns"] = {
+                "host": dns_cfg.get("host", "0.0.0.0"),
+                "port": dns_cfg.get("port", 53),
+            }
+
     config["lighthouse"] = lh_config
 
     # --- Listen ---
@@ -657,6 +667,25 @@ def build_config(minion_id=None):
         "disable_timestamp": False,
         "timestamp_format": "2006-01-02T15:04:05Z07:00",
     }
+
+    # --- SSHD (optional, host-level) ---
+    sshd_cfg = host_config.get("sshd", {})
+    if sshd_cfg.get("enabled"):
+        sshd = {
+            "enabled": True,
+            "listen": sshd_cfg.get("listen", "127.0.0.1:22"),
+            "host_key": sshd_cfg.get(
+                "host_key",
+                os.path.join(paths["config_dir"], "ssh_host_ed25519_key"),
+            ),
+        }
+        if sshd_cfg.get("authorized_users"):
+            sshd["authorized_users"] = sshd_cfg["authorized_users"]
+        if sshd_cfg.get("authorized_nebula_certificate_authorities"):
+            sshd["authorized_nebula_certificate_authorities"] = sshd_cfg[
+                "authorized_nebula_certificate_authorities"
+            ]
+        config["sshd"] = sshd
 
     # --- Firewall ---
     # Common defaults

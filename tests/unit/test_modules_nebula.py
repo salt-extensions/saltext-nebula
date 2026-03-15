@@ -2,6 +2,7 @@
 Unit tests for saltext.nebula.modules.nebula
 """
 
+import os
 from datetime import datetime
 from datetime import timedelta
 from unittest.mock import MagicMock
@@ -412,6 +413,117 @@ class TestBuildConfig:
 
         assert "172.25.0.1" in config["static_host_map"]
         assert config["static_host_map"]["172.25.0.1"] == ["1.2.3.4:4242"]
+
+    def test_lighthouse_serve_dns(self):
+        """Lighthouse with serve_dns emits serve_dns and dns block inside lighthouse config."""
+        nebula_mod.__pillar__["nebula"]["hosts"]["testhost"]["is_lighthouse"] = True
+        nebula_mod.__pillar__["nebula"]["hosts"]["testhost"]["serve_dns"] = True
+        nebula_mod.__pillar__["nebula"]["hosts"]["testhost"]["dns"] = {
+            "host": "172.25.0.2",
+            "port": 5353,
+        }
+        with patch.object(
+            nebula_mod,
+            "detect_paths",
+            return_value={
+                "ca_file": "/etc/nebula/ca.crt",
+                "cert_file": "/etc/nebula/testhost.crt",
+                "key_file": "/etc/nebula/testhost.key",
+                "config_dir": "/etc/nebula",
+            },
+        ):
+            config = nebula_mod.build_config()
+
+        assert config["lighthouse"]["serve_dns"] is True
+        assert config["lighthouse"]["dns"]["host"] == "172.25.0.2"
+        assert config["lighthouse"]["dns"]["port"] == 5353
+
+    def test_serve_dns_omitted_on_non_lighthouse(self):
+        """serve_dns is not emitted for regular nodes even if set in pillar."""
+        nebula_mod.__pillar__["nebula"]["hosts"]["testhost"]["serve_dns"] = True
+        with patch.object(
+            nebula_mod,
+            "detect_paths",
+            return_value={
+                "ca_file": "/etc/nebula/ca.crt",
+                "cert_file": "/etc/nebula/testhost.crt",
+                "key_file": "/etc/nebula/testhost.key",
+                "config_dir": "/etc/nebula",
+            },
+        ):
+            config = nebula_mod.build_config()
+
+        assert "serve_dns" not in config["lighthouse"]
+        assert "dns" not in config["lighthouse"]
+
+    def test_sshd_enabled(self):
+        """sshd block is built correctly from pillar."""
+        nebula_mod.__pillar__["nebula"]["hosts"]["testhost"]["sshd"] = {
+            "enabled": True,
+            "listen": "127.0.0.1:20022",
+            "host_key": "/etc/nebula/testhost_host",
+            "authorized_users": [{"user": "alice", "keys": ["ssh-ed25519 AAAA..."]}],
+        }
+        with patch.object(
+            nebula_mod,
+            "detect_paths",
+            return_value={
+                "ca_file": "/etc/nebula/ca.crt",
+                "cert_file": "/etc/nebula/testhost.crt",
+                "key_file": "/etc/nebula/testhost.key",
+                "config_dir": "/etc/nebula",
+            },
+        ):
+            config = nebula_mod.build_config()
+
+        assert "sshd" in config
+        assert config["sshd"]["enabled"] is True
+        assert config["sshd"]["listen"] == "127.0.0.1:20022"
+        assert config["sshd"]["host_key"] == "/etc/nebula/testhost_host"
+        assert config["sshd"]["authorized_users"][0]["user"] == "alice"
+
+    @pytest.mark.parametrize(
+        "config_dir",
+        [
+            "/etc/nebula",
+            "C:\\ProgramData\\Nebula",
+        ],
+    )
+    def test_sshd_default_host_key(self, config_dir):
+        """sshd host_key defaults to <config_dir>/ssh_host_ed25519_key on both Unix and Windows."""
+        nebula_mod.__pillar__["nebula"]["hosts"]["testhost"]["sshd"] = {
+            "enabled": True,
+            "listen": "127.0.0.1:22",
+        }
+        with patch.object(
+            nebula_mod,
+            "detect_paths",
+            return_value={
+                "ca_file": f"{config_dir}/ca.crt",
+                "cert_file": f"{config_dir}/testhost.crt",
+                "key_file": f"{config_dir}/testhost.key",
+                "config_dir": config_dir,
+            },
+        ):
+            config = nebula_mod.build_config()
+
+        assert config["sshd"]["host_key"] == os.path.join(config_dir, "ssh_host_ed25519_key")
+
+    def test_sshd_absent_when_not_configured(self):
+        """sshd key is not emitted when not in pillar."""
+        with patch.object(
+            nebula_mod,
+            "detect_paths",
+            return_value={
+                "ca_file": "/etc/nebula/ca.crt",
+                "cert_file": "/etc/nebula/testhost.crt",
+                "key_file": "/etc/nebula/testhost.key",
+                "config_dir": "/etc/nebula",
+            },
+        ):
+            config = nebula_mod.build_config()
+
+        assert "sshd" not in config
 
 
 # ---------------------------------------------------------------------------

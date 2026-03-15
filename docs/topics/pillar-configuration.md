@@ -174,6 +174,56 @@ base:
     - nebula.databases
 ```
 
+## Lighthouse DNS
+
+Lighthouses can serve DNS for the Nebula network, allowing hosts to resolve
+each other by name. Configure `serve_dns` and the `dns` bind address under
+the host entry:
+
+```yaml
+nebula:
+  hosts:
+    lighthouse01:
+      ip: "10.10.10.1/24"
+      is_lighthouse: true
+      serve_dns: true
+      dns:
+        host: "0.0.0.0"   # bind to all interfaces; use nebula IP to restrict to overlay only
+        port: 53           # use a non-privileged port like 5353 if not running as root
+```
+
+`serve_dns` is silently ignored for non-lighthouse hosts. Remember to open
+the chosen port in the host's inbound firewall rules and in your OS-level
+firewall (iptables, nftables, ufw, etc.).
+
+## Nebula SSH Server
+
+Nebula includes a built-in SSH server for management access that operates
+independently of the OS SSH daemon. It is disabled by default and only emitted
+in the generated config when `enabled: true` is set:
+
+```yaml
+nebula:
+  hosts:
+    myhost:
+      ip: "10.10.10.50/24"
+      sshd:
+        enabled: true
+        listen: "127.0.0.1:22"    # address:port for the nebula sshd to bind
+        host_key: "/etc/nebula/ssh_host_ed25519_key"  # omit to use this default
+        authorized_users:
+          - user: alice
+            keys:
+              - 'ssh-ed25519 AAAA...'
+        # Optional: also accept nebula CA-signed SSH certificates
+        authorized_nebula_certificate_authorities:
+          - 'ssh-ed25519 AAAA...'
+```
+
+When `host_key` is omitted it defaults to `<config_dir>/ssh_host_ed25519_key`.
+The key file must be generated separately (e.g. `ssh-keygen -t ed25519 -f
+/etc/nebula/ssh_host_ed25519_key -N ""`).
+
 ## Advanced Configuration Options
 
 ### Unsafe Routes
