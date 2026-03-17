@@ -3,37 +3,24 @@ name: CI
 
 on:
   workflow_call:
-    inputs:
-      deploy-docs:
-        required: false
-        type: boolean
-        default: false
-      release:
-        required: false
-        type: boolean
-        default: false
-      version:
-        required: false
-        type: string
-    secrets:
-      PYPI_API_TOKEN:
-        required: false
-      TEST_PYPI_API_TOKEN:
-        required: false
-
 
 jobs:
   get-changed-files:
     name: Get Changed Files
     uses: ./.github/workflows/get-changed-files.yml
+    permissions:
+      contents: read
+      pull-requests: read  # for dorny/paths-filter to read pull requests
 
   pre-commit:
     name: Pre-Commit
-    uses: ./.github/workflows/pre-commit-action.yml
     needs:
       - get-changed-files
+    uses: ./.github/workflows/pre-commit-action.yml
     with:
       changed-files: ${{ needs.get-changed-files.outputs.changed-files }}
+    permissions:
+      contents: read
 
   test:
     name: Test
@@ -46,6 +33,7 @@ jobs:
     needs:
       - pre-commit
     uses: ./.github/workflows/docs-action.yml
+<<<<<<< before updating
 
   check-prepare-release:
     name: Check if we can prepare release PR
@@ -78,33 +66,16 @@ jobs:
       - check-prepare-release
       - docs
       - test
+=======
+>>>>>>> after updating
     permissions:
-      contents: write
-      pull-requests: write
-    uses: ./.github/workflows/prepare-release-action.yml
-
-  deploy-docs:
-    name: Deploy Docs
-    uses: ./.github/workflows/deploy-docs-action.yml
-    # Only build doc deployments from the default branch of the repo and never for PRs,
-    # unless the triggering event was the release PR being merged.
-    if: >-
-      inputs.deploy-docs &&
-      (
-        github.event_name != 'pull_request' ||
-        inputs.release
-      ) &&
-      github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
-    needs:
-      - docs
-      - test
+      contents: read
 
   build-python-package:
     name: Python Package
-    if: ${{ inputs.release && success() }}
-    uses: ./.github/workflows/package-action.yml
     needs:
       - pre-commit
+<<<<<<< before updating
     with:
       version: "${{ inputs.version }}"
 
@@ -173,3 +144,8 @@ jobs:
         if: always()
         run:
           echo "All workflows finished"
+=======
+    uses: ./.github/workflows/package-action.yml
+    permissions:
+      contents: read
+>>>>>>> after updating
