@@ -23,7 +23,7 @@ os_support:
   - Windows
 package_name: nebula
 project_name: nebula
-python_requires: '3.12'
+python_requires: '3.10'
 relax_pylint: true
 salt_version: '3007'
 source_url: https://github.com/salt-extensions/saltext-nebula
