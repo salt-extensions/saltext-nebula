@@ -8,7 +8,7 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools_scm]
 write_to = "src/saltext/nebula/version.py"
-write_to_template = "__version__ = \"{version}\""
+write_to_template = "__version__ = \"{version}\"\n"
 
 [project]
 name = "saltext.nebula"
@@ -57,9 +57,9 @@ dev = [
 # When initializing the dev env using the included automation, pass
 # `--extras` to install them automatically.
 dev_extra = [
-    "black==25.1.0",
-    "isort==6.0.1",
-    "coverage==7.10.6",
+    "black==26.3.1",
+    "isort==8.0.1",
+    "coverage==7.13.4",
 ]
 docs = [
   "sphinx",
@@ -74,7 +74,7 @@ docs = [
 ]
 docsauto = ["sphinx-autobuild"]
 lint = [
-    "pylint==3.3.5",
+    "pylint==4.0.4",
 ]
 tests = [
     "pytest>=7.2.0",
