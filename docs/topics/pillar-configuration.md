@@ -51,6 +51,31 @@ nebula:
         description: "Allow ICMP from any host"
 ```
 
+### Lighthouse overlay and public addresses
+
+Each entry under `lighthouses` describes how mesh nodes reach a lighthouse. The
+module expands these values into Nebula `static_host_map` (overlay address →
+list of `public:lighthouse_port` strings) and, on non-lighthouse hosts, into
+`lighthouse.hosts` and `relay.relays`.
+
+**`nebula_ip` and `public_ip`** — Each is a string: one address, or several
+**comma-separated** addresses. Extra overlay segments add `static_host_map` keys
+and `lighthouse.hosts` / `relay.relays` entries; extra public segments add more
+`addr:lighthouse_port` values. Every overlay key from `nebula_ip` shares the same
+public endpoint list built from `public_ip`.
+
+**IPv6** — Write IPv6 literals in brackets (for example `[2001:db8::1]`) so the
+address parses correctly when combined with the UDP port.
+
+Example with dual-stack overlay and public endpoints (comma-separated):
+
+```yaml
+  lighthouses:
+    lighthouse01:
+      nebula_ip: "10.10.10.1,[fd00::1]"
+      public_ip: "203.0.113.10,[2001:db8::cafe]"
+```
+
 ## Host Configuration
 
 Create a pillar file for each host that needs Nebula configuration. For example, `/srv/pillar/nebula/web01.sls`:

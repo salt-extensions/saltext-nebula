@@ -547,6 +547,19 @@ def validate_certificate(cert_path=None, ca_path=None):
 # =============================================================================
 
 
+def _split_addresses(value):
+    """
+    Split a comma-separated lighthouse address string into stripped segments.
+
+    Used for ``nebula_ip`` / ``public_ip``: a single address or several
+    comma-separated ones. IPv6 literals must be bracketed (e.g. ``[2001:db8::1]``)
+    so they survive the eventual ``addr:port`` join.
+    """
+    if not value:
+        return []
+    return [p.strip() for p in str(value).split(",") if p.strip()]
+
+
 def build_config(minion_id=None):
     """
     Build a complete Nebula configuration dictionary from pillar data.
@@ -556,6 +569,11 @@ def build_config(minion_id=None):
     entirely (not append) since firewall policy should be explicitly defined
     per host.  Other dict-type settings (remote_allow_list, etc.) are deep
     merged with host values winning on key conflicts.
+
+    Lighthouse ``static_host_map`` keys are derived from ``nebula_ip`` (comma-
+    separated string yields one overlay key per address). Each key maps to the
+    same public endpoint list from ``public_ip`` (comma-separated; each value
+    becomes ``addr:port``).
 
     minion_id
         Minion to build config for.  Defaults to current minion.
@@ -592,9 +610,17 @@ def build_config(minion_id=None):
     }
 
     # --- Static host map ---
+    # Each lighthouse may declare multiple comma-separated overlay (nebula_ip)
+    # and public (public_ip) addresses; every overlay key shares the same
+    # public endpoint list.
     static_map = {}
-    for _lid, ldata in lighthouses.items():
-        static_map[ldata["nebula_ip"]] = [f"{ldata['public_ip']}:{lighthouse_port}"]
+    lighthouse_overlay_ips = []
+    for ldata in lighthouses.values():
+        nebula_ips = _split_addresses(ldata["nebula_ip"])
+        public_addrs = [f"{p}:{lighthouse_port}" for p in _split_addresses(ldata["public_ip"])]
+        for nip in nebula_ips:
+            static_map[nip] = public_addrs
+        lighthouse_overlay_ips.extend(nebula_ips)
     config["static_host_map"] = static_map
 
     # --- Lighthouse ---
@@ -603,7 +629,7 @@ def build_config(minion_id=None):
         "interval": 60,
     }
     if not is_lighthouse:
-        lh_config["hosts"] = [ldata["nebula_ip"] for ldata in lighthouses.values()]
+        lh_config["hosts"] = list(lighthouse_overlay_ips)
 
     # remote_allow_list: merge common + host (host wins on key conflict)
     common_ral = nebula_pillar.get("remote_allow_list", {})
@@ -645,7 +671,7 @@ def build_config(minion_id=None):
     # --- Relay ---
     relay = {"am_relay": is_lighthouse, "use_relays": True}
     if not is_lighthouse:
-        relay["relays"] = [ldata["nebula_ip"] for ldata in lighthouses.values()]
+        relay["relays"] = list(lighthouse_overlay_ips)
     config["relay"] = relay
 
     # --- TUN ---
@@ -1045,7 +1071,9 @@ def test_connectivity(target_host=None, timeout=10):
             lighthouses = __pillar__.get("nebula", {}).get("lighthouses", {})
             if lighthouses:
                 first = next(iter(lighthouses.values()))
-                target_host = first.get("nebula_ip")
+                nips = _split_addresses(first.get("nebula_ip"))
+                if nips:
+                    target_host = nips[0]
         except Exception:  # pylint: disable=broad-exception-caught
             pass
 
