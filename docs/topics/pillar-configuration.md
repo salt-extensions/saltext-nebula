@@ -51,6 +51,46 @@ nebula:
         description: "Allow ICMP from any host"
 ```
 
+### Lighthouse overlay and public addresses
+
+Each entry under `lighthouses` describes how mesh nodes reach a lighthouse. The
+module expands these values into Nebula `static_host_map` (overlay address →
+list of `public:lighthouse_port` strings) and, on non-lighthouse hosts, into
+`lighthouse.hosts` and `relay.relays`.
+
+**Single values (default)** — Use `nebula_ip` for the lighthouse’s Nebula
+(overlay) address and `public_ip` for its reachable public IP or hostname.
+These are always honored when the list forms below are omitted or empty.
+
+**Lists (extended)** — Optional arrays add more overlay keys or more public
+endpoints:
+
+| Key | When used |
+| --- | --- |
+| `nebula_ips` | Each entry is a separate overlay IP. Every key shares the same public endpoint list. All entries are included in `lighthouse.hosts` and `relay.relays` on other nodes. |
+| `public_ips` | Each entry becomes one `addr:lighthouse_port` value in `static_host_map` for every overlay key from that lighthouse. |
+
+Keep `nebula_ip` and `public_ip` set even when using the list keys; they act
+as fallbacks if a list is empty or unset.
+
+**IPv6** — Write IPv6 literals in brackets (for example `[2001:db8::1]`) so the
+address parses correctly when combined with the UDP port.
+
+Example with dual-stack overlay and public endpoints:
+
+```yaml
+  lighthouses:
+    lighthouse01:
+      nebula_ip: "10.10.10.1"
+      public_ip: "203.0.113.10"
+      nebula_ips:
+        - "10.10.10.1"
+        - "[fd00::1]"
+      public_ips:
+        - "203.0.113.10"
+        - "[2001:db8::cafe]"
+```
+
 ## Host Configuration
 
 Create a pillar file for each host that needs Nebula configuration. For example, `/srv/pillar/nebula/web01.sls`:

@@ -547,6 +547,44 @@ def validate_certificate(cert_path=None, ca_path=None):
 # =============================================================================
 
 
+def _lighthouse_nebula_ips(ldata):
+    """
+    List of Nebula overlay IPs for this lighthouse pillar entry.
+
+    If ``nebula_ips`` is set and non-empty after normalization, each value is one
+    address. Otherwise ``nebula_ip`` (single value) is used.
+    """
+    nebula_ips = ldata.get("nebula_ips")
+    if nebula_ips is not None:
+        if isinstance(nebula_ips, str):
+            nebula_ips = [nebula_ips]
+        elif not isinstance(nebula_ips, (list, tuple)):
+            nebula_ips = [nebula_ips]
+        ips = [str(ip).strip() for ip in nebula_ips if str(ip).strip()]
+        if ips:
+            return ips
+    return [ldata["nebula_ip"]]
+
+
+def _static_host_map_lighthouse_addrs(ldata, lighthouse_port):
+    """
+    Build the list of ``public_ip:port`` strings for one lighthouse static map entry.
+
+    If ``public_ips`` is set and non-empty after normalization, each address becomes
+    one entry. Otherwise ``public_ip`` (single string) is used.
+    """
+    public_ips = ldata.get("public_ips")
+    if public_ips is not None:
+        if isinstance(public_ips, str):
+            public_ips = [public_ips]
+        elif not isinstance(public_ips, (list, tuple)):
+            public_ips = [public_ips]
+        ips = [f"{str(ip).strip()}:{lighthouse_port}" for ip in public_ips if str(ip).strip()]
+        if ips:
+            return ips
+    return [f"{ldata['public_ip']}:{lighthouse_port}"]
+
+
 def build_config(minion_id=None):
     """
     Build a complete Nebula configuration dictionary from pillar data.
@@ -556,6 +594,13 @@ def build_config(minion_id=None):
     entirely (not append) since firewall policy should be explicitly defined
     per host.  Other dict-type settings (remote_allow_list, etc.) are deep
     merged with host values winning on key conflicts.
+
+    Lighthouse ``static_host_map`` keys use ``nebula_ips`` (list of overlay IPs)
+    when set; each key maps to the same public endpoint list. Otherwise
+    ``nebula_ip`` (single value) is used.
+
+    Public endpoints for that list come from ``public_ips`` (each expanded to
+    ``addr:port``) when set; otherwise ``public_ip`` (single value).
 
     minion_id
         Minion to build config for.  Defaults to current minion.
@@ -594,7 +639,9 @@ def build_config(minion_id=None):
     # --- Static host map ---
     static_map = {}
     for _lid, ldata in lighthouses.items():
-        static_map[ldata["nebula_ip"]] = [f"{ldata['public_ip']}:{lighthouse_port}"]
+        addrs = _static_host_map_lighthouse_addrs(ldata, lighthouse_port)
+        for nip in _lighthouse_nebula_ips(ldata):
+            static_map[nip] = addrs
     config["static_host_map"] = static_map
 
     # --- Lighthouse ---
@@ -603,7 +650,9 @@ def build_config(minion_id=None):
         "interval": 60,
     }
     if not is_lighthouse:
-        lh_config["hosts"] = [ldata["nebula_ip"] for ldata in lighthouses.values()]
+        lh_config["hosts"] = [
+            nip for ldata in lighthouses.values() for nip in _lighthouse_nebula_ips(ldata)
+        ]
 
     # remote_allow_list: merge common + host (host wins on key conflict)
     common_ral = nebula_pillar.get("remote_allow_list", {})
@@ -645,7 +694,9 @@ def build_config(minion_id=None):
     # --- Relay ---
     relay = {"am_relay": is_lighthouse, "use_relays": True}
     if not is_lighthouse:
-        relay["relays"] = [ldata["nebula_ip"] for ldata in lighthouses.values()]
+        relay["relays"] = [
+            nip for ldata in lighthouses.values() for nip in _lighthouse_nebula_ips(ldata)
+        ]
     config["relay"] = relay
 
     # --- TUN ---
@@ -1045,7 +1096,8 @@ def test_connectivity(target_host=None, timeout=10):
             lighthouses = __pillar__.get("nebula", {}).get("lighthouses", {})
             if lighthouses:
                 first = next(iter(lighthouses.values()))
-                target_host = first.get("nebula_ip")
+                nips = _lighthouse_nebula_ips(first)
+                target_host = nips[0] if nips else first.get("nebula_ip")
         except Exception:  # pylint: disable=broad-exception-caught
             pass
 
