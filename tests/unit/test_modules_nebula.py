@@ -414,6 +414,81 @@ class TestBuildConfig:
         assert "172.25.0.1" in config["static_host_map"]
         assert config["static_host_map"]["172.25.0.1"] == ["1.2.3.4:4242"]
 
+    def test_static_host_map_public_ips(self):
+        """Static host map expands public_ips to multiple addr:port entries."""
+        nebula_mod.__pillar__["nebula"]["lighthouses"]["lh1"] = {
+            "nebula_ip": "172.25.0.1",
+            "public_ip": "1.2.3.4",
+            "public_ips": ["203.0.113.10", "[2001:db8::10]"],
+        }
+        with patch.object(
+            nebula_mod,
+            "detect_paths",
+            return_value={
+                "ca_file": "/etc/nebula/ca.crt",
+                "cert_file": "/etc/nebula/testhost.crt",
+                "key_file": "/etc/nebula/testhost.key",
+            },
+        ):
+            config = nebula_mod.build_config()
+
+        assert config["static_host_map"]["172.25.0.1"] == [
+            "203.0.113.10:4242",
+            "[2001:db8::10]:4242",
+        ]
+
+    def test_nebula_ips_expands_static_map_and_lists(self):
+        """nebula_ips adds each overlay IP to static_host_map, lighthouse.hosts, and relay.relays."""
+        nebula_mod.__pillar__["nebula"]["lighthouses"]["lh1"] = {
+            "nebula_ip": "172.25.0.1",
+            "nebula_ips": ["172.25.0.10", "[fd00::10]"],
+            "public_ip": "1.2.3.4",
+        }
+        with patch.object(
+            nebula_mod,
+            "detect_paths",
+            return_value={
+                "ca_file": "/etc/nebula/ca.crt",
+                "cert_file": "/etc/nebula/testhost.crt",
+                "key_file": "/etc/nebula/testhost.key",
+            },
+        ):
+            config = nebula_mod.build_config()
+
+        expected_pub = ["1.2.3.4:4242"]
+        assert config["static_host_map"]["172.25.0.10"] == expected_pub
+        assert config["static_host_map"]["[fd00::10]"] == expected_pub
+        assert config["lighthouse"]["hosts"] == ["172.25.0.10", "[fd00::10]"]
+        assert config["relay"]["relays"] == ["172.25.0.10", "[fd00::10]"]
+
+    def test_nebula_ips_and_public_ips(self):
+        """nebula_ips and public_ips together; each has one IPv4 and one IPv6 address."""
+        nebula_mod.__pillar__["nebula"]["lighthouses"]["lh1"] = {
+            "nebula_ip": "172.25.0.1",
+            "nebula_ips": ["172.25.0.10", "[fd00::1]"],
+            "public_ip": "192.0.2.1",
+            "public_ips": ["203.0.113.50", "[2001:db8::cafe]"],
+        }
+        with patch.object(
+            nebula_mod,
+            "detect_paths",
+            return_value={
+                "ca_file": "/etc/nebula/ca.crt",
+                "cert_file": "/etc/nebula/testhost.crt",
+                "key_file": "/etc/nebula/testhost.key",
+            },
+        ):
+            config = nebula_mod.build_config()
+
+        expected_addrs = [
+            "203.0.113.50:4242",
+            "[2001:db8::cafe]:4242",
+        ]
+        assert config["static_host_map"]["172.25.0.10"] == expected_addrs
+        assert config["static_host_map"]["[fd00::1]"] == expected_addrs
+        assert config["lighthouse"]["hosts"] == ["172.25.0.10", "[fd00::1]"]
+        assert config["relay"]["relays"] == ["172.25.0.10", "[fd00::1]"]
+
     def test_lighthouse_serve_dns(self):
         """Lighthouse with serve_dns emits serve_dns and dns block inside lighthouse config."""
         nebula_mod.__pillar__["nebula"]["hosts"]["testhost"]["is_lighthouse"] = True
