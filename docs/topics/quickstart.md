@@ -302,6 +302,6 @@ salt web01 saltutil.refresh_pillar
 
 ## Next Steps
 
-- Read the [Pillar Configuration](pillar-configuration.md) guide for advanced topology options
+- Read the [Pillar Configuration](pillar-configuration.md) guide for advanced topology options, including [multiple overlay and public addresses](pillar-configuration.md#lighthouse-overlay-and-public-addresses) (IPv4, IPv6, and dual-stack)
 - Set up [Automatic Certificate Renewal](certificate-management.md) with beacons
 - Review the [Module Reference](../ref/modules/index) for all available functions
