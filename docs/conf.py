@@ -73,7 +73,9 @@ with open("sitevars.rst") as site_vars_file:
 
 rst_prolog = """
 {}
-""".format("\n".join(site_vars[:]))
+""".format(
+    "\n".join(site_vars[:])
+)
 
 # -- General configuration ---------------------------------------------------
 
