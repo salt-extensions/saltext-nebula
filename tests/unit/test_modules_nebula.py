@@ -644,6 +644,94 @@ class TestBuildConfig:
 
         assert config["listen"]["port"] == 5555
 
+    def test_relay_am_relay_defaults_to_is_lighthouse(self):
+        """am_relay tracks is_lighthouse when is_relay is not set."""
+        nebula_mod.__pillar__["nebula"]["hosts"]["testhost"]["is_lighthouse"] = True
+        with patch.object(
+            nebula_mod,
+            "detect_paths",
+            return_value={
+                "ca_file": "/etc/nebula/ca.crt",
+                "cert_file": "/etc/nebula/testhost.crt",
+                "key_file": "/etc/nebula/testhost.key",
+            },
+        ):
+            config = nebula_mod.build_config()
+
+        assert config["relay"]["am_relay"] is True
+
+    def test_relay_is_relay_opt_out_on_lighthouse(self):
+        """A lighthouse with is_relay: false does not advertise am_relay."""
+        nebula_mod.__pillar__["nebula"]["hosts"]["testhost"]["is_lighthouse"] = True
+        nebula_mod.__pillar__["nebula"]["hosts"]["testhost"]["is_relay"] = False
+        with patch.object(
+            nebula_mod,
+            "detect_paths",
+            return_value={
+                "ca_file": "/etc/nebula/ca.crt",
+                "cert_file": "/etc/nebula/testhost.crt",
+                "key_file": "/etc/nebula/testhost.key",
+            },
+        ):
+            config = nebula_mod.build_config()
+
+        assert config["relay"]["am_relay"] is False
+
+    def test_relay_is_relay_opt_in_on_regular_node(self):
+        """A non-lighthouse with is_relay: true advertises am_relay."""
+        nebula_mod.__pillar__["nebula"]["hosts"]["testhost"]["is_relay"] = True
+        with patch.object(
+            nebula_mod,
+            "detect_paths",
+            return_value={
+                "ca_file": "/etc/nebula/ca.crt",
+                "cert_file": "/etc/nebula/testhost.crt",
+                "key_file": "/etc/nebula/testhost.key",
+            },
+        ):
+            config = nebula_mod.build_config()
+
+        assert config["relay"]["am_relay"] is True
+
+    def test_relay_list_excludes_non_relay_lighthouse(self):
+        """A lighthouse marked relay: false is dropped from the relays list nodes use."""
+        nebula_mod.__pillar__["nebula"]["lighthouses"] = {
+            "lh1": {"nebula_ip": "172.25.0.1", "public_ip": "1.2.3.4", "relay": False},
+            "lh2": {"nebula_ip": "172.25.0.2", "public_ip": "5.6.7.8"},
+        }
+        with patch.object(
+            nebula_mod,
+            "detect_paths",
+            return_value={
+                "ca_file": "/etc/nebula/ca.crt",
+                "cert_file": "/etc/nebula/testhost.crt",
+                "key_file": "/etc/nebula/testhost.key",
+            },
+        ):
+            config = nebula_mod.build_config()
+
+        # Both lighthouses remain reachable for discovery...
+        assert set(config["lighthouse"]["hosts"]) == {"172.25.0.1", "172.25.0.2"}
+        assert "172.25.0.1" in config["static_host_map"]
+        # ...but only the relay-eligible one is used as a relay.
+        assert config["relay"]["relays"] == ["172.25.0.2"]
+
+    def test_relay_explicit_list_overrides_derived(self):
+        """An explicit relays list replaces the lighthouse-derived set."""
+        nebula_mod.__pillar__["nebula"]["hosts"]["testhost"]["relays"] = ["172.25.0.2"]
+        with patch.object(
+            nebula_mod,
+            "detect_paths",
+            return_value={
+                "ca_file": "/etc/nebula/ca.crt",
+                "cert_file": "/etc/nebula/testhost.crt",
+                "key_file": "/etc/nebula/testhost.key",
+            },
+        ):
+            config = nebula_mod.build_config()
+
+        assert config["relay"]["relays"] == ["172.25.0.2"]
+
 
 # ---------------------------------------------------------------------------
 # backup_config / rollback_config

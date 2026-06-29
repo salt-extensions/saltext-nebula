@@ -297,6 +297,48 @@ nebula:
         - "203.0.113.50:4242"
 ```
 
+### Relay Control
+
+By default a lighthouse also acts as a relay (``am_relay: true``) and every
+non-lighthouse uses all lighthouses as its relays. That is a poor fit when a
+lighthouse sits behind NAT: it becomes an unreliable relay for the whole mesh.
+Three independent controls are available.
+
+Stop a lighthouse from acting as a relay (it still serves discovery), and drop
+it from the relay list other nodes build, by marking its ``lighthouses`` entry:
+
+```yaml
+nebula:
+  lighthouses:
+    lighthouse-nat:
+      nebula_ip: "10.10.10.1"
+      public_ip: "203.0.113.10"
+      relay: false        # discovery only, never used as a relay
+```
+
+Override ``am_relay`` for a single host regardless of its lighthouse status:
+
+```yaml
+nebula:
+  hosts:
+    lighthouse-nat:
+      ip: "10.10.10.1/24"
+      is_lighthouse: true
+      is_relay: false      # this lighthouse will not relay for others
+```
+
+Replace the derived relay list for a host (or, in common, for all hosts) with
+an explicit set:
+
+```yaml
+nebula:
+  hosts:
+    web01:
+      ip: "10.10.10.123/24"
+      relays:
+        - "10.10.10.2"     # use only this lighthouse as a relay
+```
+
 ### Calculated Remotes
 
 For dynamic IP resolution:

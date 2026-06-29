@@ -628,12 +628,19 @@ def build_config(minion_id=None):
     # public endpoint list.
     static_map = {}
     lighthouse_overlay_ips = []
+    relay_overlay_ips = []
     for ldata in lighthouses.values():
         nebula_ips = _split_addresses(ldata["nebula_ip"])
         public_addrs = [f"{p}:{lighthouse_port}" for p in _split_addresses(ldata["public_ip"])]
         for nip in nebula_ips:
             static_map[nip] = public_addrs
         lighthouse_overlay_ips.extend(nebula_ips)
+        # A lighthouse may decline to act as a relay (e.g. one behind NAT) by
+        # setting ``relay: false`` on its entry. It is still used for discovery
+        # (lighthouse.hosts / static_host_map) but excluded from the relay list
+        # other nodes build. Defaults to true to preserve prior behavior.
+        if ldata.get("relay", True):
+            relay_overlay_ips.extend(nebula_ips)
     config["static_host_map"] = static_map
 
     # --- Lighthouse ---
@@ -682,9 +689,19 @@ def build_config(minion_id=None):
     config["punchy"] = {"punch": True, "respond": True, "delay": "1s"}
 
     # --- Relay ---
-    relay = {"am_relay": is_lighthouse, "use_relays": True}
-    if not is_lighthouse:
-        relay["relays"] = list(lighthouse_overlay_ips)
+    # am_relay defaults to is_lighthouse but is independently controllable via
+    # a per-host ``is_relay`` flag, so a lighthouse behind NAT (a poor relay)
+    # can opt out, or a well-connected non-lighthouse can opt in. The relays a
+    # node *uses* come from the relay-eligible lighthouses (those without
+    # ``relay: false``); an explicit ``relays`` list (per-host, then common)
+    # replaces that derived set entirely for full control.
+    am_relay = host_config.get("is_relay", is_lighthouse)
+    relay = {"am_relay": am_relay, "use_relays": True}
+    explicit_relays = host_config.get("relays", nebula_pillar.get("relays"))
+    if explicit_relays is not None:
+        relay["relays"] = list(explicit_relays)
+    elif not is_lighthouse:
+        relay["relays"] = list(relay_overlay_ips)
     config["relay"] = relay
 
     # --- TUN ---
