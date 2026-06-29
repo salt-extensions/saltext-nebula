@@ -851,6 +851,59 @@ class TestBuildConfig:
         assert config["firewall"]["conntrack"]["tcp_timeout"] == "30m"  # overridden
         assert config["firewall"]["conntrack"]["udp_timeout"] == "3m"  # default preserved
 
+    def test_warns_on_unrecognized_host_key(self, caplog):
+        """An unknown key on a host entry produces a warning naming the key."""
+        nebula_mod.__pillar__["nebula"]["hosts"]["testhost"]["firewal"] = {}  # typo
+        with caplog.at_level("WARNING"):
+            with patch.object(
+                nebula_mod,
+                "detect_paths",
+                return_value={
+                    "ca_file": "/etc/nebula/ca.crt",
+                    "cert_file": "/etc/nebula/testhost.crt",
+                    "key_file": "/etc/nebula/testhost.key",
+                },
+            ):
+                nebula_mod.build_config()
+
+        assert "unrecognized pillar key 'firewal'" in caplog.text
+
+    def test_warns_on_misnested_section_as_host(self, caplog):
+        """A config-section name appearing under hosts: is flagged as likely misnested."""
+        nebula_mod.__pillar__["nebula"]["hosts"]["firewall"] = {
+            "inbound": [{"port": "any", "proto": "icmp", "host": "any"}]
+        }
+        with caplog.at_level("WARNING"):
+            with patch.object(
+                nebula_mod,
+                "detect_paths",
+                return_value={
+                    "ca_file": "/etc/nebula/ca.crt",
+                    "cert_file": "/etc/nebula/testhost.crt",
+                    "key_file": "/etc/nebula/testhost.key",
+                },
+            ):
+                nebula_mod.build_config()
+
+        assert "'hosts:firewall' looks like a misnested config block" in caplog.text
+
+    def test_no_warning_for_clean_pillar(self, caplog):
+        """A well-formed host entry produces no validation warnings."""
+        with caplog.at_level("WARNING"):
+            with patch.object(
+                nebula_mod,
+                "detect_paths",
+                return_value={
+                    "ca_file": "/etc/nebula/ca.crt",
+                    "cert_file": "/etc/nebula/testhost.crt",
+                    "key_file": "/etc/nebula/testhost.key",
+                },
+            ):
+                nebula_mod.build_config()
+
+        assert "unrecognized pillar key" not in caplog.text
+        assert "misnested config block" not in caplog.text
+
 
 # ---------------------------------------------------------------------------
 # backup_config / rollback_config

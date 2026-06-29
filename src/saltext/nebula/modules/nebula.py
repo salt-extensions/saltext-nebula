@@ -154,6 +154,76 @@ def _merge_section(defaults, *overrides):
     return result
 
 
+# Keys recognized on a host's pillar entry. ``ip``/``groups``/``subnets``/
+# ``duration`` are consumed by certificate generation (see the runner); the rest
+# are consumed by build_config. Anything outside this set is silently ignored and
+# almost always indicates a typo or a block indented one level too shallow.
+_RECOGNIZED_HOST_KEYS = frozenset(
+    {
+        "ip",
+        "groups",
+        "subnets",
+        "duration",
+        "is_lighthouse",
+        "is_relay",
+        "relays",
+        "listen_port",
+        "serve_dns",
+        "dns",
+        "local_allow_list",
+        "remote_allow_list",
+        "advertise_addrs",
+        "calculated_remotes",
+        "static_host_map",
+        "unsafe_routes",
+        "sshd",
+        "firewall",
+        "tun",
+        "punchy",
+        "logging",
+        "conntrack",
+        "cipher",
+    }
+)
+
+# Names that are Nebula config sections, not hostnames. If one appears as a key
+# directly under ``hosts:`` it is almost certainly a firewall/sshd/etc. block
+# indented one level too shallow (a very common YAML mistake), which leaves the
+# intended host silently falling back to defaults for that section.
+_MISNESTED_SECTION_NAMES = frozenset(
+    {"firewall", "inbound", "outbound", "sshd", "tun", "punchy", "logging", "conntrack"}
+)
+
+
+def _validate_host_pillar(minion_id, host_config, all_hosts):
+    """
+    Emit warnings for likely pillar mistakes. Never raises; warnings only.
+
+    Catches two common errors:
+
+    * a key on the host entry that build_config / cert generation do not read
+      (typo or wrong nesting level), and
+    * a Nebula config-section name appearing as a hostname under ``hosts:``,
+      which is the classic "firewall block indented one level too shallow" bug.
+    """
+    for key in host_config:
+        if key not in _RECOGNIZED_HOST_KEYS:
+            log.warning(
+                "nebula: host '%s' has unrecognized pillar key '%s'; it will be "
+                "ignored. Check the spelling and the indentation.",
+                minion_id,
+                key,
+            )
+    for name in all_hosts:
+        if name != minion_id and name in _MISNESTED_SECTION_NAMES:
+            log.warning(
+                "nebula: 'hosts:%s' looks like a misnested config block rather "
+                "than a hostname (likely indented one level too shallow). The "
+                "intended host will fall back to defaults for that section.",
+                name,
+            )
+
+
 def _run_service_cmd(action):
     """
     Execute a service control action.  Returns (success, message).
@@ -609,8 +679,11 @@ def build_config(minion_id=None):
 
     paths = detect_paths()
     nebula_pillar = __pillar__.get("nebula", {})
-    host_config = nebula_pillar.get("hosts", {}).get(minion_id, {})
+    all_hosts = nebula_pillar.get("hosts", {})
+    host_config = all_hosts.get(minion_id, {})
     is_lighthouse = host_config.get("is_lighthouse", False)
+
+    _validate_host_pillar(minion_id, host_config, all_hosts)
 
     lighthouses = nebula_pillar.get("lighthouses", {})
     lighthouse_port = nebula_pillar.get("lighthouse_port", 4242)
