@@ -253,6 +253,30 @@ The key file must be generated separately (e.g. `ssh-keygen -t ed25519 -f
 
 ## Advanced Configuration Options
 
+### Static Host Map Overrides
+
+The lighthouse ``static_host_map`` is normally derived for every node from the
+``lighthouses`` definitions (overlay IP -> ``public_ip:lighthouse_port``). A host
+can override or extend it, which is useful when a node should reach a lighthouse
+over a different path than the global public endpoint (for example a container
+co-located with a lighthouse reaching it on the host bridge instead of hairpinning
+the WAN):
+
+```yaml
+nebula:
+  hosts:
+    salt-master:
+      ip: "10.10.10.10/24"
+      static_host_map:
+        # reach lighthouse 10.10.10.1 directly on the local bridge; this
+        # replaces the derived public endpoint for that overlay IP
+        "10.10.10.1": ["192.0.2.17:4242"]
+```
+
+An entry for an overlay IP that is already derived replaces its endpoint list;
+an entry for a new overlay IP is added. A common-level ``static_host_map`` may be
+used to pin entries for every node.
+
 ### Unsafe Routes
 
 Route traffic for external networks through Nebula nodes:

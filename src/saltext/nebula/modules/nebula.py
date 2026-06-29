@@ -641,6 +641,18 @@ def build_config(minion_id=None):
         # other nodes build. Defaults to true to preserve prior behavior.
         if ldata.get("relay", True):
             relay_overlay_ips.extend(nebula_ips)
+
+    # Per-host (and common) static_host_map overrides: replace the derived
+    # endpoint list for a matching overlay IP, or add new overlay IPs entirely.
+    # This lets a node reach a lighthouse over a path other than the globally
+    # derived public endpoint -- e.g. a co-located node using a bridge address
+    # instead of the WAN -- and lets arbitrary hosts be statically pinned.
+    for overrides in (
+        nebula_pillar.get("static_host_map", {}),
+        host_config.get("static_host_map", {}),
+    ):
+        if overrides:
+            static_map.update(overrides)
     config["static_host_map"] = static_map
 
     # --- Lighthouse ---

@@ -732,6 +732,44 @@ class TestBuildConfig:
 
         assert config["relay"]["relays"] == ["172.25.0.2"]
 
+    def test_static_host_map_host_override_replaces_endpoint(self):
+        """A per-host static_host_map entry replaces the derived endpoint for that overlay IP."""
+        nebula_mod.__pillar__["nebula"]["hosts"]["testhost"]["static_host_map"] = {
+            "172.25.0.1": ["10.20.146.17:4242"],
+        }
+        with patch.object(
+            nebula_mod,
+            "detect_paths",
+            return_value={
+                "ca_file": "/etc/nebula/ca.crt",
+                "cert_file": "/etc/nebula/testhost.crt",
+                "key_file": "/etc/nebula/testhost.key",
+            },
+        ):
+            config = nebula_mod.build_config()
+
+        # derived endpoint (1.2.3.4:4242) replaced by the bridge address
+        assert config["static_host_map"]["172.25.0.1"] == ["10.20.146.17:4242"]
+
+    def test_static_host_map_host_override_adds_new_entry(self):
+        """A per-host static_host_map entry for a new overlay IP is added alongside derived ones."""
+        nebula_mod.__pillar__["nebula"]["hosts"]["testhost"]["static_host_map"] = {
+            "172.25.5.5": ["198.51.100.5:4242"],
+        }
+        with patch.object(
+            nebula_mod,
+            "detect_paths",
+            return_value={
+                "ca_file": "/etc/nebula/ca.crt",
+                "cert_file": "/etc/nebula/testhost.crt",
+                "key_file": "/etc/nebula/testhost.key",
+            },
+        ):
+            config = nebula_mod.build_config()
+
+        assert config["static_host_map"]["172.25.0.1"] == ["1.2.3.4:4242"]  # derived, intact
+        assert config["static_host_map"]["172.25.5.5"] == ["198.51.100.5:4242"]  # added
+
 
 # ---------------------------------------------------------------------------
 # backup_config / rollback_config
