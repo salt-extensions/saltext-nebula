@@ -4,6 +4,13 @@ This project uses [Semantic Versioning](https://semver.org/) - MAJOR.MINOR.PATCH
 
 # Changelog
 
+## 1.1.0 (2026-06-29)
+
+
+### Added
+
+- Add support for multiple Nebula overlay and public IPs in node and lighthouse configuration [#3](https://github.com/salt-extensions/saltext-nebula/issues/3)
+
 ## 1.0.2 (2026-06-29)
 
 - Added configuration handling for multiple lighthouses, including support for IPv6 and Dual-Stack deployments. (Thanks to @krombel!)
