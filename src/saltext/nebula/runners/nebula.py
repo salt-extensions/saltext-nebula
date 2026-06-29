@@ -39,6 +39,10 @@ except ImportError:
 from datetime import datetime
 from pathlib import Path
 
+from salt.exceptions import CommandExecutionError
+
+import saltext.nebula.modules.nebula as nebula_module
+
 log = logging.getLogger(__name__)
 
 # Default configuration values
@@ -783,3 +787,57 @@ def test_pillar_access(minion_id):
         }
     except Exception as e:  # pylint: disable=broad-exception-caught
         return {"success": False, "error": str(e)}
+
+
+def show_config(minion_id, config_dir="/etc/nebula"):
+    """
+    Render the Nebula config a target minion would receive, computed on the master.
+
+    This compiles the minion's pillar on the master (via ``pillar.show_pillar``)
+    and assembles the same configuration ``nebula.build_config`` would produce on
+    the minion, without contacting the minion. It is handy for previewing or
+    diffing a node's config, and for the single-master case where you want to
+    render (and then write) the master's own Nebula config locally rather than
+    standing up a second master to highstate it. For example::
+
+        salt-run nebula.show_config minion_id=$(salt-call --local grains.get id --out=newline_values_only) --out=yaml > /etc/nebula/nebula.yml
+
+    Because the master has no minion grains for the target, the PKI paths use the
+    standard layout under ``config_dir`` (``<config_dir>/ca.crt`` and
+    ``<config_dir>/<minion_id>.{crt,key}``) rather than autodetecting an install.
+
+    minion_id
+        The minion ID to render configuration for.
+
+    config_dir
+        Directory used to construct the ``pki`` file paths. Defaults to
+        ``/etc/nebula``.
+
+    CLI Example:
+
+    .. code-block:: bash
+
+        salt-run nebula.show_config minion_id=web01
+        salt-run nebula.show_config minion_id=web01 --out=yaml
+
+    Returns:
+        dict: The assembled Nebula configuration, ready for YAML serialization.
+    """
+    pillar_data = __salt__["pillar.show_pillar"](minion_id)
+    nebula_pillar = (pillar_data or {}).get("nebula", {})
+    if not nebula_pillar:
+        raise CommandExecutionError(
+            f"No 'nebula' pillar found for minion '{minion_id}'. Check the pillar top "
+            "file and that the minion id is correct, then verify with "
+            f"'salt-run nebula.test_pillar_access minion_id={minion_id}'."
+        )
+
+    paths = {
+        "config_dir": config_dir,
+        "ca_file": os.path.join(config_dir, "ca.crt"),
+        "cert_file": os.path.join(config_dir, f"{minion_id}.crt"),
+        "key_file": os.path.join(config_dir, f"{minion_id}.key"),
+    }
+
+    # Reuse the exact assembly the execution module uses; no logic duplication.
+    return nebula_module._assemble_config(minion_id, nebula_pillar, paths)

@@ -435,3 +435,26 @@ salt-run nebula.test_pillar_access minion_id=web01
 ```
 
 This is useful for debugging certificate generation issues.
+
+## Previewing a Host's Generated Config
+
+To see the exact Nebula configuration a minion would receive, rendered from
+pillar on the master without contacting the minion:
+
+```bash
+# Pretty-print for inspection or diffing
+salt-run nebula.show_config minion_id=web01 --out=yaml
+```
+
+This is the master-side counterpart to ``salt 'web01' nebula.build_config`` and
+produces identical output. The PKI file paths use the standard layout under
+``/etc/nebula`` (override with ``config_dir=/path``).
+
+It is also convenient when a single Salt master manages its own Nebula config:
+you can render and write the master's config locally without standing up a
+second master to highstate it. For example:
+
+```bash
+MID=$(salt-call --local grains.get id --out=newline_values_only)
+salt-run nebula.show_config minion_id="$MID" --out=yaml > /etc/nebula/nebula.yml
+```
