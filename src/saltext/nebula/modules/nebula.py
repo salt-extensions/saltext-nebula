@@ -598,7 +598,20 @@ def build_config(minion_id=None):
 
     lighthouses = nebula_pillar.get("lighthouses", {})
     lighthouse_port = nebula_pillar.get("lighthouse_port", 4242)
-    listen_port = nebula_pillar.get("listen_port", 0)
+
+    # listen.port precedence:
+    #   1. an explicit per-host ``listen_port`` always wins;
+    #   2. otherwise a lighthouse pins to ``lighthouse_port`` -- a lighthouse on
+    #      an ephemeral port is essentially always wrong, because every node's
+    #      static_host_map targets ``lighthouse_port``;
+    #   3. everything else uses the global ``listen_port`` (default 0 = ephemeral,
+    #      which is the recommended value for roaming, non-lighthouse nodes).
+    if "listen_port" in host_config:
+        listen_port = host_config["listen_port"]
+    elif is_lighthouse:
+        listen_port = lighthouse_port
+    else:
+        listen_port = nebula_pillar.get("listen_port", 0)
 
     # --- PKI ---
     config = {

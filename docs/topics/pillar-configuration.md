@@ -145,8 +145,10 @@ nebula:
         - "infrastructure"
       duration: "43800h"          # Longer validity for infrastructure
 
-      # Lighthouses should listen on a fixed port
-      # (configured via listen_port in common settings)
+      # Lighthouses listen on a fixed port automatically: when is_lighthouse
+      # is true, listen.port is pinned to lighthouse_port. Set a per-host
+      # listen_port here only to override that (rarely needed).
+      # listen_port: 4242
 
       firewall:
         inbound:

@@ -596,6 +596,54 @@ class TestBuildConfig:
 
         assert "sshd" not in config
 
+    def test_listen_port_global_default_for_regular_node(self):
+        """A non-lighthouse uses the global listen_port (0 by default)."""
+        with patch.object(
+            nebula_mod,
+            "detect_paths",
+            return_value={
+                "ca_file": "/etc/nebula/ca.crt",
+                "cert_file": "/etc/nebula/testhost.crt",
+                "key_file": "/etc/nebula/testhost.key",
+            },
+        ):
+            config = nebula_mod.build_config()
+
+        assert config["listen"]["port"] == 0
+
+    def test_listen_port_lighthouse_pins_to_lighthouse_port(self):
+        """A lighthouse pins listen.port to lighthouse_port even if the global is 0."""
+        nebula_mod.__pillar__["nebula"]["hosts"]["testhost"]["is_lighthouse"] = True
+        with patch.object(
+            nebula_mod,
+            "detect_paths",
+            return_value={
+                "ca_file": "/etc/nebula/ca.crt",
+                "cert_file": "/etc/nebula/testhost.crt",
+                "key_file": "/etc/nebula/testhost.key",
+            },
+        ):
+            config = nebula_mod.build_config()
+
+        assert config["listen"]["port"] == 4242
+
+    def test_listen_port_explicit_host_override_wins(self):
+        """An explicit per-host listen_port wins over both the global and the lighthouse pin."""
+        nebula_mod.__pillar__["nebula"]["hosts"]["testhost"]["is_lighthouse"] = True
+        nebula_mod.__pillar__["nebula"]["hosts"]["testhost"]["listen_port"] = 5555
+        with patch.object(
+            nebula_mod,
+            "detect_paths",
+            return_value={
+                "ca_file": "/etc/nebula/ca.crt",
+                "cert_file": "/etc/nebula/testhost.crt",
+                "key_file": "/etc/nebula/testhost.key",
+            },
+        ):
+            config = nebula_mod.build_config()
+
+        assert config["listen"]["port"] == 5555
+
 
 # ---------------------------------------------------------------------------
 # backup_config / rollback_config
