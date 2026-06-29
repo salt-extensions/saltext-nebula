@@ -650,11 +650,17 @@ def build_config(minion_id=None):
     """
     Build a complete Nebula configuration dictionary from pillar data.
 
-    Merges common-level settings with host-level overrides.  Firewall rules
-    at the common level serve as defaults; host-level rules replace them
-    entirely (not append) since firewall policy should be explicitly defined
-    per host.  Other dict-type settings (remote_allow_list, etc.) are deep
-    merged with host values winning on key conflicts.
+    Merges common-level settings with host-level overrides. Merge semantics vary
+    by section:
+
+    * Firewall ``inbound``/``outbound`` rule lists: host rules *replace* common
+      rules entirely (not appended), since firewall policy should be defined
+      explicitly per host.
+    * ``remote_allow_list``: shallow per-key merge (host keys win over common).
+    * ``static_host_map``: per-overlay-IP override (host/common entries replace
+      the derived endpoint list for that IP, or add a new IP).
+    * ``tun`` / ``punchy`` / ``logging`` / ``conntrack``: deep-merged over the
+      built-in defaults (common then host), so only overridden keys change.
 
     Lighthouse ``static_host_map`` keys are derived from ``nebula_ip`` (comma-
     separated string yields one overlay key per address). Each key maps to the
