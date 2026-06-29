@@ -682,9 +682,25 @@ def build_config(minion_id=None):
     """
     if not minion_id:
         minion_id = __grains__["id"]
-
     paths = detect_paths()
     nebula_pillar = __pillar__.get("nebula", {})
+    return _assemble_config(minion_id, nebula_pillar, paths)
+
+
+def _assemble_config(minion_id, nebula_pillar, paths):
+    """
+    Assemble the Nebula config dict from already-resolved pillar and paths.
+
+    Pure function with no Salt dunders, shared by two callers:
+
+    * :func:`build_config` (minion side) -- pillar from ``__pillar__``, paths
+      from :func:`detect_paths`; and
+    * the ``nebula.show_config`` runner (master side) -- pillar from
+      ``pillar.show_pillar`` and a standard path layout.
+
+    ``paths`` must provide ``ca_file``, ``cert_file``, ``key_file`` and
+    ``config_dir``. See :func:`build_config` for the per-section merge semantics.
+    """
     all_hosts = nebula_pillar.get("hosts", {})
     host_config = all_hosts.get(minion_id, {})
     is_lighthouse = host_config.get("is_lighthouse", False)

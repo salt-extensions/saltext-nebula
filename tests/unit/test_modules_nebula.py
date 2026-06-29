@@ -1077,3 +1077,42 @@ class TestValidateCertificate:
             result = nebula_mod.validate_certificate()
 
         assert result["valid"] is True
+
+
+class TestAssembleConfig:
+    """The pure _assemble_config helper shared by build_config and the runner."""
+
+    PILLAR = {
+        "lighthouse_port": 4242,
+        "listen_port": 0,
+        "lighthouses": {
+            "lh1": {"nebula_ip": "172.25.0.1", "public_ip": "1.2.3.4"},
+        },
+        "hosts": {
+            "node1": {"ip": "172.25.1.10/20", "groups": ["managed"]},
+        },
+    }
+    PATHS = {
+        "ca_file": "/etc/nebula/ca.crt",
+        "cert_file": "/etc/nebula/node1.crt",
+        "key_file": "/etc/nebula/node1.key",
+        "config_dir": "/etc/nebula",
+    }
+
+    def test_pure_no_dunders(self):
+        """Builds a full config from explicit args without touching __pillar__."""
+        nebula_mod.__pillar__ = {}  # must be ignored
+        config = nebula_mod._assemble_config("node1", self.PILLAR, self.PATHS)
+        assert config["pki"]["cert"] == "/etc/nebula/node1.crt"
+        assert config["static_host_map"]["172.25.0.1"] == ["1.2.3.4:4242"]
+        assert config["lighthouse"]["hosts"] == ["172.25.0.1"]
+        assert config["relay"]["relays"] == ["172.25.0.1"]
+
+    def test_matches_build_config(self):
+        """build_config is a thin wrapper: same pillar+paths -> identical output."""
+        nebula_mod.__pillar__ = {"nebula": self.PILLAR}
+        nebula_mod.__grains__ = {"id": "node1", "os_family": "Debian", "kernel": "Linux"}
+        with patch.object(nebula_mod, "detect_paths", return_value=self.PATHS):
+            via_build = nebula_mod.build_config()
+        via_assemble = nebula_mod._assemble_config("node1", self.PILLAR, self.PATHS)
+        assert via_build == via_assemble
