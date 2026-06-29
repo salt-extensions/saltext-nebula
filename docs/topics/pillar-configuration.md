@@ -378,6 +378,38 @@ nebula:
             port: 4242
 ```
 
+## Overriding Built-in Config Sections
+
+The ``tun``, ``punchy``, ``logging`` and ``conntrack`` sections have sensible
+defaults but can be overridden from pillar, at the common level (all nodes) or
+per host. Overrides are deep-merged onto the defaults, so you only specify the
+keys you want to change:
+
+```yaml
+nebula:
+  # common: applies to every node
+  tun:
+    mtu: 1280            # e.g. lower MTU for a WireGuard underlay
+  logging:
+    level: debug
+  conntrack:
+    tcp_timeout: "30m"
+
+  hosts:
+    web01:
+      ip: "10.10.10.123/24"
+      punchy:
+        delay: "2s"      # per-host override, merged over common + defaults
+```
+
+An optional network-wide cipher may be set (it MUST be identical on every node;
+do not change it on a live network):
+
+```yaml
+nebula:
+  cipher: aes            # or chachapoly
+```
+
 ## Refreshing Pillar Data
 
 After modifying pillar files, refresh the pillar data:

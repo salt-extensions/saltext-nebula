@@ -770,6 +770,87 @@ class TestBuildConfig:
         assert config["static_host_map"]["172.25.0.1"] == ["1.2.3.4:4242"]  # derived, intact
         assert config["static_host_map"]["172.25.5.5"] == ["198.51.100.5:4242"]  # added
 
+    def test_cipher_absent_by_default(self):
+        """No cipher key is emitted unless configured."""
+        with patch.object(
+            nebula_mod,
+            "detect_paths",
+            return_value={
+                "ca_file": "/etc/nebula/ca.crt",
+                "cert_file": "/etc/nebula/testhost.crt",
+                "key_file": "/etc/nebula/testhost.key",
+            },
+        ):
+            config = nebula_mod.build_config()
+
+        assert "cipher" not in config
+
+    def test_cipher_from_common(self):
+        """cipher is emitted at top level when set in common pillar."""
+        nebula_mod.__pillar__["nebula"]["cipher"] = "aes"
+        with patch.object(
+            nebula_mod,
+            "detect_paths",
+            return_value={
+                "ca_file": "/etc/nebula/ca.crt",
+                "cert_file": "/etc/nebula/testhost.crt",
+                "key_file": "/etc/nebula/testhost.key",
+            },
+        ):
+            config = nebula_mod.build_config()
+
+        assert config["cipher"] == "aes"
+
+    def test_tun_defaults_unchanged_without_override(self):
+        """tun keeps its built-in defaults when no pillar override is present."""
+        with patch.object(
+            nebula_mod,
+            "detect_paths",
+            return_value={
+                "ca_file": "/etc/nebula/ca.crt",
+                "cert_file": "/etc/nebula/testhost.crt",
+                "key_file": "/etc/nebula/testhost.key",
+            },
+        ):
+            config = nebula_mod.build_config()
+
+        assert config["tun"]["mtu"] == 1300
+        assert config["tun"]["dev"] == "nebula1"
+
+    def test_tun_override_merges_over_defaults(self):
+        """A host tun override changes named keys while leaving the rest of the defaults intact."""
+        nebula_mod.__pillar__["nebula"]["hosts"]["testhost"]["tun"] = {"mtu": 1280}
+        with patch.object(
+            nebula_mod,
+            "detect_paths",
+            return_value={
+                "ca_file": "/etc/nebula/ca.crt",
+                "cert_file": "/etc/nebula/testhost.crt",
+                "key_file": "/etc/nebula/testhost.key",
+            },
+        ):
+            config = nebula_mod.build_config()
+
+        assert config["tun"]["mtu"] == 1280  # overridden
+        assert config["tun"]["dev"] == "nebula1"  # default preserved
+
+    def test_conntrack_override_merges_over_defaults(self):
+        """A common conntrack override changes named keys under firewall.conntrack."""
+        nebula_mod.__pillar__["nebula"]["conntrack"] = {"tcp_timeout": "30m"}
+        with patch.object(
+            nebula_mod,
+            "detect_paths",
+            return_value={
+                "ca_file": "/etc/nebula/ca.crt",
+                "cert_file": "/etc/nebula/testhost.crt",
+                "key_file": "/etc/nebula/testhost.key",
+            },
+        ):
+            config = nebula_mod.build_config()
+
+        assert config["firewall"]["conntrack"]["tcp_timeout"] == "30m"  # overridden
+        assert config["firewall"]["conntrack"]["udp_timeout"] == "3m"  # default preserved
+
 
 # ---------------------------------------------------------------------------
 # backup_config / rollback_config

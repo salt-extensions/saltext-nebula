@@ -138,6 +138,22 @@ def _deep_merge(base, override):
     return result
 
 
+def _merge_section(defaults, *overrides):
+    """
+    Deep-merge a sequence of optional pillar override dicts onto *defaults*.
+
+    Empty/false overrides are skipped, so passing ``{}`` (the common case when a
+    pillar key is absent) returns *defaults* unchanged. Used to let pillar data
+    override otherwise hardcoded config sections (tun, punchy, logging,
+    conntrack) without having to restate every default.
+    """
+    result = defaults
+    for override in overrides:
+        if override:
+            result = _deep_merge(result, override)
+    return result
+
+
 def _run_service_cmd(action):
     """
     Execute a service control action.  Returns (success, message).
@@ -697,8 +713,17 @@ def build_config(minion_id=None):
     # --- Listen ---
     config["listen"] = {"host": "0.0.0.0", "port": listen_port}
 
-    # --- Punchy ---
-    config["punchy"] = {"punch": True, "respond": True, "delay": "1s"}
+    # --- Cipher (optional; MUST be identical on every node in the network) ---
+    cipher = host_config.get("cipher", nebula_pillar.get("cipher"))
+    if cipher:
+        config["cipher"] = cipher
+
+    # --- Punchy (defaults; overridable via common/host ``punchy``) ---
+    config["punchy"] = _merge_section(
+        {"punch": True, "respond": True, "delay": "1s"},
+        nebula_pillar.get("punchy", {}),
+        host_config.get("punchy", {}),
+    )
 
     # --- Relay ---
     # am_relay defaults to is_lighthouse but is independently controllable via
@@ -716,25 +741,38 @@ def build_config(minion_id=None):
         relay["relays"] = list(relay_overlay_ips)
     config["relay"] = relay
 
-    # --- TUN ---
-    config["tun"] = {
-        "disabled": False,
-        "dev": "nebula1",
-        "drop_local_broadcast": False,
-        "drop_multicast": False,
-        "tx_queue": 1000,
-        "mtu": 1300,
-        "routes": [],
-        "unsafe_routes": host_config.get("unsafe_routes", []),
-    }
+    # --- TUN (defaults; overridable via common/host ``tun``) ---
+    # ``unsafe_routes`` keeps its dedicated host-level key; strip it from any
+    # ``tun`` override so it is not merged (and list-appended) a second time.
+    def _without_unsafe_routes(section):
+        return {k: v for k, v in (section or {}).items() if k != "unsafe_routes"}
 
-    # --- Logging ---
-    config["logging"] = {
-        "level": "info",
-        "format": "text",
-        "disable_timestamp": False,
-        "timestamp_format": "2006-01-02T15:04:05Z07:00",
-    }
+    config["tun"] = _merge_section(
+        {
+            "disabled": False,
+            "dev": "nebula1",
+            "drop_local_broadcast": False,
+            "drop_multicast": False,
+            "tx_queue": 1000,
+            "mtu": 1300,
+            "routes": [],
+            "unsafe_routes": host_config.get("unsafe_routes", []),
+        },
+        _without_unsafe_routes(nebula_pillar.get("tun", {})),
+        _without_unsafe_routes(host_config.get("tun", {})),
+    )
+
+    # --- Logging (defaults; overridable via common/host ``logging``) ---
+    config["logging"] = _merge_section(
+        {
+            "level": "info",
+            "format": "text",
+            "disable_timestamp": False,
+            "timestamp_format": "2006-01-02T15:04:05Z07:00",
+        },
+        nebula_pillar.get("logging", {}),
+        host_config.get("logging", {}),
+    )
 
     # --- SSHD (optional, host-level) ---
     sshd_cfg = host_config.get("sshd", {})
@@ -777,12 +815,16 @@ def build_config(minion_id=None):
         inbound = [{"port": "any", "proto": "icmp", "host": "any"}]
 
     config["firewall"] = {
-        "conntrack": {
-            "tcp_timeout": "12m",
-            "udp_timeout": "3m",
-            "default_timeout": "10m",
-            "max_connections": 100000,
-        },
+        "conntrack": _merge_section(
+            {
+                "tcp_timeout": "12m",
+                "udp_timeout": "3m",
+                "default_timeout": "10m",
+                "max_connections": 100000,
+            },
+            nebula_pillar.get("conntrack", {}),
+            host_config.get("conntrack", {}),
+        ),
         "outbound": outbound,
         "inbound": inbound,
     }
