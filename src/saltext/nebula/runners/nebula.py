@@ -832,11 +832,17 @@ def show_config(minion_id, config_dir="/etc/nebula"):
             f"'salt-run nebula.test_pillar_access minion_id={minion_id}'."
         )
 
+    # Build the PKI paths using the separator already present in config_dir,
+    # not os.path.join (whose separator follows the *master's* OS). This runner
+    # renders a config for a target that may run a different OS than the master,
+    # so the result must not depend on where the runner happens to execute.
+    sep = "\\" if "\\" in config_dir else "/"
+    base = config_dir.rstrip("/\\")
     paths = {
         "config_dir": config_dir,
-        "ca_file": os.path.join(config_dir, "ca.crt"),
-        "cert_file": os.path.join(config_dir, f"{minion_id}.crt"),
-        "key_file": os.path.join(config_dir, f"{minion_id}.key"),
+        "ca_file": f"{base}{sep}ca.crt",
+        "cert_file": f"{base}{sep}{minion_id}.crt",
+        "key_file": f"{base}{sep}{minion_id}.key",
     }
 
     # Reuse the exact assembly the execution module uses; no logic duplication.

@@ -42,6 +42,20 @@ class TestShowConfig:
         config = nebula_runner.show_config("web01", config_dir="/opt/nebula")
         assert config["pki"]["key"] == "/opt/nebula/web01.key"
 
+    def test_pki_paths_follow_config_dir_separator(self):
+        """Paths use the separator in config_dir, independent of the master's OS.
+
+        Regression guard: os.path.join would emit the master's separator, which
+        is wrong when rendering for a different-OS target (and broke on Windows).
+        """
+        nebula_runner.__salt__ = {"pillar.show_pillar": MagicMock(return_value=PILLAR)}
+        posix = nebula_runner.show_config("web01", config_dir="/etc/nebula")
+        assert posix["pki"]["ca"] == "/etc/nebula/ca.crt"
+        assert posix["pki"]["cert"] == "/etc/nebula/web01.crt"
+        windows = nebula_runner.show_config("web01", config_dir="C:\\ProgramData\\Nebula")
+        assert windows["pki"]["ca"] == "C:\\ProgramData\\Nebula\\ca.crt"
+        assert windows["pki"]["cert"] == "C:\\ProgramData\\Nebula\\web01.crt"
+
     def test_matches_build_config(self):
         """Runner output is identical to the execution module's build_config."""
         nebula_mod.__pillar__ = PILLAR
