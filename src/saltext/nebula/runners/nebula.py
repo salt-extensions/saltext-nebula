@@ -42,6 +42,7 @@ from pathlib import Path
 from salt.exceptions import CommandExecutionError
 
 import saltext.nebula.modules.nebula as nebula_module
+from saltext.nebula.pillar import nebula_ipam
 
 log = logging.getLogger(__name__)
 
@@ -57,6 +58,9 @@ _DEFAULTS = {
     "ca_duration": "87600h",  # 10 years
     "ca_encrypt": False,  # Default to unencrypted until passphrase is configured
     "ca_passphrase": None,
+    # IPAM (external pillar allocation database). Should match the ``store``
+    # configured for the ``nebula_ipam`` ext_pillar.
+    "ipam_store": nebula_ipam.DEFAULT_STORE,
 }
 
 
@@ -110,6 +114,8 @@ def _get_config():
         "ca_duration": __opts__.get("nebula.ca_duration", _DEFAULTS["ca_duration"]),
         "ca_encrypt": __opts__.get("nebula.ca_encrypt", _DEFAULTS["ca_encrypt"]),
         "ca_passphrase": __opts__.get("nebula.ca_passphrase", _DEFAULTS["ca_passphrase"]),
+        # IPAM
+        "ipam_store": __opts__.get("nebula.ipam_store", _DEFAULTS["ipam_store"]),
     }
 
     # Warn if encryption is enabled but no passphrase is set
@@ -847,3 +853,94 @@ def show_config(minion_id, config_dir="/etc/nebula"):
 
     # Reuse the exact assembly the execution module uses; no logic duplication.
     return nebula_module._assemble_config(minion_id, nebula_pillar, paths)
+
+
+# =============================================================================
+# IPAM administration
+#
+# These wrap the shared allocation store used by the ``nebula_ipam`` external
+# pillar so operators can inspect and manage dynamic allocations from the CLI.
+# The store path defaults to ``nebula.ipam_store`` in the master config and must
+# match the ``store`` configured for the ext_pillar.
+# =============================================================================
+
+
+def ipam_list(store=None):
+    """
+    List all dynamic Nebula IP allocations.
+
+    store
+        Path to the IPAM SQLite database. Defaults to ``nebula.ipam_store``.
+
+    CLI Example:
+
+    .. code-block:: bash
+
+        salt-run nebula.ipam_list
+
+    Returns:
+        dict: success (bool), allocations (list), total (int), error (if failed).
+    """
+    store_path = store or _get_config()["ipam_store"]
+    try:
+        allocations = nebula_ipam.list_all(store_path)
+        return {"success": True, "allocations": allocations, "total": len(allocations)}
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        return {"success": False, "error": f"Failed to list allocations: {e}"}
+
+
+def ipam_show(minion_id, store=None):
+    """
+    Show the dynamic IP allocation for a single minion.
+
+    minion_id
+        The minion ID to look up.
+
+    store
+        Path to the IPAM SQLite database. Defaults to ``nebula.ipam_store``.
+
+    CLI Example:
+
+    .. code-block:: bash
+
+        salt-run nebula.ipam_show minion_id=web01
+
+    Returns:
+        dict: success (bool), allocation (dict or None), error (if failed).
+    """
+    store_path = store or _get_config()["ipam_store"]
+    try:
+        return {"success": True, "allocation": nebula_ipam.lookup(store_path, minion_id)}
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        return {"success": False, "error": f"Failed to look up allocation: {e}"}
+
+
+def ipam_release(minion_id, store=None):
+    """
+    Release a minion's dynamic IP allocation, freeing the address for reuse.
+
+    Intended for decommissioning a node. Note that reusing an address while a
+    previously issued certificate for it is still valid is risky; release only
+    after the old certificate has been revoked or has expired.
+
+    minion_id
+        The minion ID whose allocation should be released.
+
+    store
+        Path to the IPAM SQLite database. Defaults to ``nebula.ipam_store``.
+
+    CLI Example:
+
+    .. code-block:: bash
+
+        salt-run nebula.ipam_release minion_id=web01
+
+    Returns:
+        dict: success (bool), released (bool), error (if failed).
+    """
+    store_path = store or _get_config()["ipam_store"]
+    try:
+        released = nebula_ipam.release(store_path, minion_id)
+        return {"success": True, "released": released}
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        return {"success": False, "error": f"Failed to release allocation: {e}"}

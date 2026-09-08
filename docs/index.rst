@@ -27,6 +27,7 @@ Salt Extension for managing `Nebula <https://github.com/slackhq/nebula>`_ mesh V
 
   topics/master-configuration
   topics/pillar-configuration
+  topics/ip-allocation
 
 .. toctree::
   :maxdepth: 2
@@ -46,6 +47,7 @@ Salt Extension for managing `Nebula <https://github.com/slackhq/nebula>`_ mesh V
   ref/modules/index
   ref/states/index
   ref/beacons/index
+  ref/pillar/index
 
 .. toctree::
   :maxdepth: 2
