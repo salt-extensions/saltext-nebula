@@ -47,6 +47,7 @@ Salt Extension for managing `Nebula <https://github.com/slackhq/nebula>`_ mesh V
   ref/modules/index
   ref/states/index
   ref/beacons/index
+  ref/pillars/index
 
 .. toctree::
   :maxdepth: 2
