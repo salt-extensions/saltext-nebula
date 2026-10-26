@@ -1,6 +1,8 @@
 # Quick Start Guide
 
-This guide walks you through setting up a basic Nebula mesh network with `saltext-nebula`. By the end, you'll have a working mesh with one lighthouse and one client node.
+This guide walks you through setting up a basic Nebula mesh network
+with `saltext-nebula`. By the end, you'll have a working mesh with one
+lighthouse and one client node.
 
 ## Prerequisites
 
@@ -36,10 +38,10 @@ nebula.ca_crt: /etc/nebula/ca/ca.crt
 nebula.salt_cert_dir: /srv/salt/nebula/certs
 
 # CA settings
-nebula.ca_name: "My Nebula Network"
-nebula.ca_duration: "87600h"
+nebula.ca_name: My Nebula Network
+nebula.ca_duration: 87600h
 nebula.ca_encrypt: true
-nebula.ca_passphrase: "change-this-to-a-secure-passphrase"
+nebula.ca_passphrase: change-this-to-a-secure-passphrase
 ```
 
 Create the required directories:
@@ -63,17 +65,17 @@ Create `/srv/pillar/nebula/common.sls`:
 nebula:
   lighthouse_port: 4242
   listen_port: 0
-  network_cidr: "10.10.10.0/24"
-  dns_name: "nebula"
+  network_cidr: 10.10.10.0/24
+  dns_name: nebula
 
   remote_allow_list:
-    '0.0.0.0/0': true
-    '::/0': false
+    0.0.0.0/0: true
+    ::/0: false
 
   lighthouses:
     lighthouse01:
-      nebula_ip: "10.10.10.1"
-      public_ip: "YOUR_LIGHTHOUSE_PUBLIC_IP"  # Replace with actual IP
+      nebula_ip: 10.10.10.1
+      public_ip: YOUR_LIGHTHOUSE_PUBLIC_IP    # Replace with actual IP
 ```
 
 Create `/srv/pillar/nebula/lighthouse01.sls`:
@@ -82,12 +84,12 @@ Create `/srv/pillar/nebula/lighthouse01.sls`:
 nebula:
   hosts:
     lighthouse01:
-      ip: "10.10.10.1/24"
+      ip: 10.10.10.1/24
       is_lighthouse: true
       groups:
-        - "lighthouse"
-        - "infrastructure"
-      duration: "43800h"
+        - lighthouse
+        - infrastructure
+      duration: 43800h
 
       firewall:
         inbound:
@@ -109,10 +111,10 @@ Create `/srv/pillar/nebula/client01.sls`:
 nebula:
   hosts:
     client01:
-      ip: "10.10.10.10/24"
+      ip: 10.10.10.10/24
       groups:
-        - "clients"
-      duration: "8760h"
+        - clients
+      duration: 8760h
 
       firewall:
         inbound:
@@ -131,9 +133,9 @@ Update `/srv/pillar/top.sls`:
 base:
   '*':
     - nebula.common
-  'lighthouse01':
+  lighthouse01:
     - nebula.lighthouse01
-  'client01':
+  client01:
     - nebula.client01
 ```
 
@@ -150,6 +152,7 @@ salt-run nebula.ca_init
 ```
 
 Expected output:
+
 ```
 success: True
 ca_crt: /etc/nebula/ca/ca.crt
@@ -302,6 +305,10 @@ salt web01 saltutil.refresh_pillar
 
 ## Next Steps
 
-- Read the [Pillar Configuration](pillar-configuration.md) guide for advanced topology options, including multiple overlay and public addresses (IPv4, IPv6, and dual-stack).
-- Set up [Automatic Certificate Renewal](certificate-management.md) with beacons
-- Review the [Module Reference](../ref/modules/index) for all available functions
+- Read the [Pillar Configuration](pillar-configuration.md) guide for
+  advanced topology options, including multiple overlay and public
+  addresses (IPv4, IPv6, and dual-stack).
+- Set up [Automatic Certificate Renewal](certificate-management.md)
+  with beacons
+- Review the [Module Reference](../ref/modules/index) for all
+  available functions

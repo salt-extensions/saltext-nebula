@@ -1,10 +1,12 @@
 # Certificate Management
 
-`saltext-nebula` provides comprehensive certificate lifecycle management, from initial generation through automatic renewal.
+`saltext-nebula` provides comprehensive certificate lifecycle
+management, from initial generation through automatic renewal.
 
 ## Certificate Generation
 
-Certificates are generated on the Salt master using the `nebula` runner and distributed to minions via the Salt fileserver.
+Certificates are generated on the Salt master using the `nebula`
+runner and distributed to minions via the Salt fileserver.
 
 ### Manual Generation
 
@@ -18,7 +20,9 @@ salt-run nebula.get_certificate minion_id=web01
 # at salt://nebula/certs/web01.crt and salt://nebula/certs/web01.key
 ```
 
-The runner reads the minion's configuration from pillar and generates a certificate with:
+The runner reads the minion's configuration from pillar and generates
+a certificate with:
+
 - The IP address specified in pillar
 - Group memberships for firewall rules
 - The configured validity duration
@@ -32,13 +36,13 @@ Certificate properties are defined in pillar:
 nebula:
   hosts:
     web01:
-      ip: "10.10.10.50/24"         # Required: Nebula IP address
+      ip: 10.10.10.50/24           # Required: Nebula IP address
       groups:                       # Optional: Security groups
-        - "web"
-        - "production"
+        - web
+        - production
       subnets:                      # Optional: Routable subnets
-        - "192.168.1.0/24"
-      duration: "8760h"             # Optional: Validity (default: 720h / 30 days)
+        - 192.168.1.0/24
+      duration: 8760h               # Optional: Validity (default: 720h / 30 days)
 ```
 
 ### Batch Generation
@@ -57,7 +61,8 @@ salt-run state.orchestrate orch.generate_certs
 
 ## Certificate Distribution
 
-Certificates are distributed to minions via the `certificates_present` state.
+Certificates are distributed to minions via the `certificates_present`
+state.
 
 ### Basic Distribution
 
@@ -68,11 +73,12 @@ nebula_certificates:
 ```
 
 This state:
+
 1. Checks if certificates exist locally
-2. Validates existing certificates against the CA
-3. Downloads new certificates from `salt://nebula/certs/` if needed
-4. Sets appropriate file permissions
-5. Validates the deployed certificate chain
+1. Validates existing certificates against the CA
+1. Downloads new certificates from `salt://nebula/certs/` if needed
+1. Sets appropriate file permissions
+1. Validates the deployed certificate chain
 
 ### Distribution Options
 
@@ -142,7 +148,8 @@ salt web01 state.apply nebula
 
 ### Automatic Renewal
 
-The `nebula` beacon monitors certificate expiration and fires events when renewal is needed.
+The `nebula` beacon monitors certificate expiration and fires events
+when renewal is needed.
 
 #### Configure the Beacon
 
@@ -186,12 +193,13 @@ Data:
 
 #### Reactor Configuration
 
-Create a reactor to handle renewal events. Add to `/etc/salt/master.d/reactor.conf`:
+Create a reactor to handle renewal events. Add to
+`/etc/salt/master.d/reactor.conf`:
 
 ```yaml
 reactor:
-  - 'salt/beacon/*/nebula/cert/expiring':
-    - /srv/reactor/nebula_renew.sls
+  - salt/beacon/*/nebula/cert/expiring:
+      - /srv/reactor/nebula_renew.sls
 ```
 
 Create `/srv/reactor/nebula_renew.sls`:
@@ -221,6 +229,7 @@ salt-run nebula.list_certificates
 ```
 
 Output:
+
 ```yaml
 success: True
 total: 5
@@ -239,7 +248,8 @@ certificates:
 
 ### Automatic Backups
 
-The `certificates_present` state automatically backs up existing certificates:
+The `certificates_present` state automatically backs up existing
+certificates:
 
 ```yaml
 nebula_certificates:
@@ -284,7 +294,8 @@ salt-run nebula.ca_init \
 ### Force CA Regeneration
 
 :::{danger}
-Regenerating the CA **invalidates all existing certificates**. All nodes will need new certificates.
+Regenerating the CA **invalidates all existing certificates**. All
+nodes will need new certificates.
 :::
 
 ```bash
@@ -294,7 +305,7 @@ salt-run nebula.ca_init force=True
 ### CA Security Best Practices
 
 1. **Always encrypt the CA key** - Use `nebula.ca_encrypt: true`
-2. **Secure the passphrase** - Consider using a secrets manager
-3. **Restrict CA directory permissions** - `chmod 700 /etc/nebula/ca`
-4. **Back up the CA** - Store encrypted backups securely off-system
-5. **Monitor CA access** - Audit access to the CA key
+1. **Secure the passphrase** - Consider using a secrets manager
+1. **Restrict CA directory permissions** - `chmod 700 /etc/nebula/ca`
+1. **Back up the CA** - Store encrypted backups securely off-system
+1. **Monitor CA access** - Audit access to the CA key

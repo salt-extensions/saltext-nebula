@@ -1,10 +1,12 @@
 # Master Configuration
 
-The Salt master requires configuration to manage the Nebula Certificate Authority and generate certificates for minions.
+The Salt master requires configuration to manage the Nebula
+Certificate Authority and generate certificates for minions.
 
 ## Runner Configuration
 
-Create `/etc/salt/master.d/nebula.conf` to configure the nebula runner:
+Create `/etc/salt/master.d/nebula.conf` to configure the nebula
+runner:
 
 ```yaml
 # Path configuration
@@ -14,16 +16,16 @@ nebula.ca_crt: /etc/nebula/ca/ca.crt      # CA certificate location
 nebula.salt_cert_dir: /srv/salt/nebula/certs  # Salt fileserver location for cert distribution
 
 # CA configuration
-nebula.ca_name: "My Nebula Network"       # Name embedded in the CA certificate
-nebula.ca_duration: "87600h"              # CA validity (default: 10 years)
+nebula.ca_name: My Nebula Network         # Name embedded in the CA certificate
+nebula.ca_duration: 87600h                # CA validity (default: 10 years)
 nebula.ca_encrypt: true                   # Encrypt the CA private key
-nebula.ca_passphrase: "your-secure-passphrase"  # Required if ca_encrypt is true
+nebula.ca_passphrase: your-secure-passphrase    # Required if ca_encrypt is true
 ```
 
 ### Configuration Options
 
 | Option                 | Default                       | Description                                       |
-|------------------------|-------------------------------|---------------------------------------------------|
+| ---------------------- | ----------------------------- | ------------------------------------------------- |
 | `nebula.cert_dir`      | `/etc/nebula/certs`           | Directory for generated host certificates         |
 | `nebula.ca_key`        | `/etc/nebula/ca/ca.key`       | Path to CA private key                            |
 | `nebula.ca_crt`        | `/etc/nebula/ca/ca.crt`       | Path to CA certificate                            |
@@ -34,7 +36,9 @@ nebula.ca_passphrase: "your-secure-passphrase"  # Required if ca_encrypt is true
 | `nebula.ca_passphrase` | `None`                        | Passphrase for encrypted CA key                   |
 
 :::{warning}
-If `nebula.ca_encrypt` is `true`, you **must** set `nebula.ca_passphrase`. Certificate signing operations will fail without it.
+If `nebula.ca_encrypt` is `true`, you **must** set
+`nebula.ca_passphrase`. Certificate signing operations will fail
+without it.
 :::
 
 ## Directory Setup
@@ -68,18 +72,23 @@ salt-run nebula.ca_init name="Production Nebula" duration="43800h" encrypt=True 
 ```
 
 This creates:
+
 - `ca.crt` - The CA certificate (distributed to all nodes)
 - `ca.key` - The CA private key (kept secure on the master)
 
-The CA certificate is automatically copied to the Salt fileserver location for minion retrieval.
+The CA certificate is automatically copied to the Salt fileserver
+location for minion retrieval.
 
 :::{danger}
-**Protect your CA private key!** Anyone with access to the CA key can issue valid certificates for your mesh network. Use encryption (`ca_encrypt: true`) and secure the passphrase appropriately.
+**Protect your CA private key!** Anyone with access to the CA key can
+issue valid certificates for your mesh network. Use encryption
+(`ca_encrypt: true`) and secure the passphrase appropriately.
 :::
 
 ## Applying Configuration
 
-After creating or modifying the configuration, restart the Salt master:
+After creating or modifying the configuration, restart the Salt
+master:
 
 ```bash
 # systemd
