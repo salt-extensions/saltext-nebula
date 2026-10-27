@@ -1,6 +1,7 @@
 # State Examples
 
-This page provides complete, production-ready state examples for deploying Nebula with `saltext-nebula`.
+This page provides complete, production-ready state examples for
+deploying Nebula with `saltext-nebula`.
 
 ## Basic Deployment State
 
@@ -59,7 +60,8 @@ nebula_service:
 
 ## Complete Deployment with Package Installation
 
-A comprehensive state that handles package installation across platforms:
+A comprehensive state that handles package installation across
+platforms:
 
 ```sls
 # /srv/salt/nebula/init.sls
@@ -288,6 +290,7 @@ generate_cert_{{ host }}:
 ```
 
 Run with:
+
 ```bash
 salt-run state.orchestrate orch.nebula_certs
 ```
@@ -350,6 +353,7 @@ nebula_purge:
 ```
 
 Run with:
+
 ```bash
 salt web01 state.apply nebula.remove
 ```

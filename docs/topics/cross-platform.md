@@ -1,16 +1,21 @@
 # Cross-Platform Support
 
-`saltext-nebula` is designed to work across different operating systems and installation methods. The extension automatically detects the platform and adapts paths, service management, and permissions accordingly.
+`saltext-nebula` is designed to work across different operating
+systems and installation methods. The extension automatically detects
+the platform and adapts paths, service management, and permissions
+accordingly.
 
 ## Path Detection
 
-The `detect_paths` function automatically identifies your Nebula installation:
+The `detect_paths` function automatically identifies your Nebula
+installation:
 
 ```bash
 salt '*' nebula.detect_paths
 ```
 
 Example output for a Linux package installation:
+
 ```yaml
 binary_path: /usr/bin/nebula
 cert_binary_path: /usr/bin/nebula-cert
@@ -33,6 +38,7 @@ path_sep: /
 ### Platform-Specific Paths
 
 #### Linux Package Installation
+
 ```
 binary:     /usr/bin/nebula or /usr/sbin/nebula
 config:     /etc/nebula/nebula.yml
@@ -41,6 +47,7 @@ service:    nebula (systemd or OpenRC)
 ```
 
 #### Linux Snap Installation
+
 ```
 binary:     /snap/bin/nebula
 config:     /var/snap/nebula/common/config/config.yaml
@@ -49,6 +56,7 @@ service:    nebula (snap service)
 ```
 
 #### Windows Chocolatey
+
 ```
 binary:     C:\ProgramData\chocolatey\bin\nebula.exe
 config:     C:\ProgramData\Nebula\nebula.yml
@@ -57,6 +65,7 @@ service:    nebula (Windows Service)
 ```
 
 #### Windows GitHub Release
+
 ```
 binary:     C:\Program Files\Nebula\nebula.exe
 config:     C:\ProgramData\Nebula\nebula.yml
@@ -80,14 +89,15 @@ salt '*' nebula.service_enable
 Behind the scenes, these map to:
 
 | Action  | systemd                      | OpenRC                      | Snap                         | Windows                               |
-|---------|------------------------------|-----------------------------|------------------------------|---------------------------------------|
+| ------- | ---------------------------- | --------------------------- | ---------------------------- | ------------------------------------- |
 | restart | `systemctl restart nebula`   | `rc-service nebula restart` | `snap restart nebula`        | `net stop nebula && net start nebula` |
 | status  | `systemctl is-active nebula` | `rc-service nebula status`  | `snap services nebula`       | `sc query nebula`                     |
 | enable  | `systemctl enable nebula`    | `rc-update add nebula`      | `snap start --enable nebula` | `sc config nebula start= auto`        |
 
 ## Writing Cross-Platform States
 
-The execution module handles platform differences, allowing states to remain simple:
+The execution module handles platform differences, allowing states to
+remain simple:
 
 ```sls
 # This state works on Linux, Windows, Alpine, etc.
@@ -144,7 +154,8 @@ group: nebula
 
 ### Windows Systems
 
-Windows doesn't use Unix-style permissions. The state module uses `icacls` to set ACLs:
+Windows doesn't use Unix-style permissions. The state module uses
+`icacls` to set ACLs:
 
 - Private keys: SYSTEM and Administrators only (Full Control)
 - Certificates: SYSTEM, Administrators (Full Control), Users (Read)

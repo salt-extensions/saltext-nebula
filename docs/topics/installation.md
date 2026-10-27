@@ -1,6 +1,10 @@
 # Installation
 
-`saltext-nebula` is a Salt extension for managing [Nebula](https://github.com/slackhq/nebula) mesh VPN deployments. It provides centralized certificate authority management, automated certificate distribution, cross-platform configuration generation, and certificate lifecycle monitoring.
+`saltext-nebula` is a Salt extension for managing
+[Nebula](https://github.com/slackhq/nebula) mesh VPN deployments. It
+provides centralized certificate authority management, automated
+certificate distribution, cross-platform configuration generation, and
+certificate lifecycle monitoring.
 
 ## Requirements
 
@@ -10,7 +14,8 @@
 
 ## Installing the Extension
 
-Generally, Salt extensions need to be installed into the same Python environment Salt uses.
+Generally, Salt extensions need to be installed into the same Python
+environment Salt uses.
 
 :::{tab} State
 ```yaml
@@ -30,19 +35,33 @@ salt-pip install saltext-nebula
 ```bash
 pip install saltext-nebula
 ```
+
+Salt itself is expected to be provided by the environment. If it
+should be pip-managed as well, request the `salt` extra:
+
+```bash
+pip install 'saltext-nebula[salt]'
+```
 :::
 
 :::{hint}
-Salt extensions are not distributed automatically via the fileserver like custom modules. They need to be installed on each node where you want them available:
-- Install on the **Salt master** for runner functionality (CA management, certificate generation)
+Salt extensions are not distributed automatically via the fileserver
+like custom modules. They need to be installed on each node where you
+want them available:
+
+- Install on the **Salt master** for runner functionality (CA
+  management, certificate generation)
 - Install on **minions** for execution modules, states, and beacons
 :::
 
 ## Alternative: GitFS Distribution
 
-For development workflows or environments where pip installation is not practical, you can distribute the extension components via GitFS. This pulls each component directly into the Salt fileserver.
+For development workflows or environments where pip installation is
+not practical, you can distribute the extension components via GitFS.
+This pulls each component directly into the Salt fileserver.
 
-Add the following to `/etc/salt/master` or `/etc/salt/master.d/gitfs.conf`:
+Add the following to `/etc/salt/master` or
+`/etc/salt/master.d/gitfs.conf`:
 
 ```yaml
 fileserver_backend:
@@ -51,41 +70,42 @@ fileserver_backend:
 
 gitfs_remotes:
   - https://github.com/salt-extensions/saltext-nebula.git:
-    - name: saltext-nebula-modules
-    - root: src/saltext/nebula/modules
-    - mountpoint: salt://_modules
-    - base: main
-    - ref_types:
-      - branch
+      - name: saltext-nebula-modules
+      - root: src/saltext/nebula/modules
+      - mountpoint: salt://_modules
+      - base: main
+      - ref_types:
+          - branch
   - https://github.com/salt-extensions/saltext-nebula.git:
-    - name: saltext-nebula-states
-    - root: src/saltext/nebula/states
-    - mountpoint: salt://_states
-    - base: main
-    - ref_types:
-      - branch
+      - name: saltext-nebula-states
+      - root: src/saltext/nebula/states
+      - mountpoint: salt://_states
+      - base: main
+      - ref_types:
+          - branch
   - https://github.com/salt-extensions/saltext-nebula.git:
-    - name: saltext-nebula-runners
-    - root: src/saltext/nebula/runners
-    - mountpoint: salt://_runners
-    - base: main
-    - ref_types:
-      - branch
+      - name: saltext-nebula-runners
+      - root: src/saltext/nebula/runners
+      - mountpoint: salt://_runners
+      - base: main
+      - ref_types:
+          - branch
   - https://github.com/salt-extensions/saltext-nebula.git:
-    - name: saltext-nebula-beacons
-    - root: src/saltext/nebula/beacons
-    - mountpoint: salt://_beacons
-    - base: main
-    - ref_types:
-      - branch
+      - name: saltext-nebula-beacons
+      - root: src/saltext/nebula/beacons
+      - mountpoint: salt://_beacons
+      - base: main
+      - ref_types:
+          - branch
 
 gitfs_refspecs:
-  - '+refs/heads/main:refs/remotes/origin/main'
-  - '+refs/heads/*:refs/remotes/origin/*'
-  - '+refs/tags/*:refs/tags/*'
+  - +refs/heads/main:refs/remotes/origin/main
+  - +refs/heads/*:refs/remotes/origin/*
+  - +refs/tags/*:refs/tags/*
 ```
 
-After configuring GitFS, refresh the fileserver and sync modules to minions:
+After configuring GitFS, refresh the fileserver and sync modules to
+minions:
 
 ```bash
 # Restart the salt master
